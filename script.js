@@ -865,7 +865,8 @@
             var keys = (d.envKeys || []).join(', ') || 'không có biến nào';
             // VAPID_SUBJECT không bắt buộc nhưng thiếu thì Apple hay từ chối,
             // nên nhắc riêng chứ không tính là hỏng.
-            var warn = d.vapidSubject ? '' : ' Lưu ý: chưa đặt VAPID_SUBJECT, iPhone có thể từ chối nhận.';
+            var warn = (d.vapidSubject ? '' : ' Lưu ý: chưa đặt VAPID_SUBJECT, iPhone có thể từ chối nhận.')
+              + (d.cronSecret ? '' : ' Chưa đặt CRON_SECRET nên ai cũng gọi được /api/cron.');
             st.textContent = bad.length
               ? 'Máy chủ còn thiếu: ' + bad.join('; ') + '. ' + (d.hint ? d.hint + ' ' : '')
                 + 'Biến đang có trên server: ' + keys + '. Sửa trên Vercel rồi deploy lại.'
