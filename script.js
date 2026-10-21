@@ -1408,7 +1408,24 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('sw.js').catch(function () {});
+        navigator.serviceWorker.register('sw.js').then(function (reg) {
+          reg.update().catch(function () {});
+          // Mỗi lần quay lại app thì hỏi xem có bản mới chưa, đỡ phải xoá
+          // cache tay mỗi lần deploy.
+          document.addEventListener('visibilitychange', function () {
+            if (!document.hidden) reg.update().catch(function () {});
+          });
+        }).catch(function () {});
+
+        // sw.js gọi skipWaiting nên bản mới chiếm quyền ngay; tải lại một
+        // lần để trang chạy đúng mã vừa deploy.
+        var reloaded = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+          if (reloaded) return;
+          reloaded = true;
+          toast('Đã có bản mới', 'Đang tải lại trang...');
+          setTimeout(function () { window.location.reload(); }, 1200);
+        });
       });
     }
   }
