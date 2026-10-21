@@ -14,11 +14,23 @@ Trang web tĩnh một trang, theo dõi giáo án tập luyện 10K cho **Bắc N
 - **Ghi chú cho từng buổi tập** — ô ghi chú gấp mở (cảm nhận, đau mỏi, thời tiết...), lưu riêng theo từng buổi.
 - **Ảnh Strava** — kéo-thả ảnh chụp màn hình sau buổi chạy, tự khớp theo ngày với buổi tập trong giáo án và tự đánh dấu đã chạy; có thể nhập tay quãng đường/pace/thời gian.
 - **Chạy thử 5 km ở tuần 6** để tự tính lại pace mục tiêu cho ngày thi.
+- **200 câu truyền động lực tiếng Anh** — hiện ngẫu nhiên một câu ở tab Tổng quan, đổi câu khi bấm nút hoặc mỗi lần đánh dấu xong một buổi chạy.
 - **Cài đặt như app (PWA)** — có `manifest.json` + service worker, dùng được offline sau lần mở đầu tiên và thêm được vào màn hình chính trên điện thoại.
+- **Nhắc chạy bằng thông báo** — bật trong tab Tổng quan, chọn giờ nhắc, chỉ nhắc vào ngày có buổi chạy mà bạn chưa đánh dấu xong.
 
 ## Lưu trữ dữ liệu
 
 Toàn bộ trạng thái (buổi đã chạy, lịch tùy chỉnh, ghi chú, ảnh Strava) chỉ lưu **trong trình duyệt của bạn** (`localStorage` + `IndexedDB`), không gửi lên server nào. Đổi trình duyệt hoặc xóa dữ liệu trang là mất hết — hiện chưa có tính năng xuất/nhập backup.
+
+## Giới hạn của phần nhắc chạy
+
+Trang này không có máy chủ nên **không dùng được Web Push thật**. Lời nhắc chạy bằng cơ chế cục bộ, mức độ tin cậy khác nhau tùy máy:
+
+- **Android, đã thêm vào màn hình chính**: service worker đăng ký Periodic Background Sync (tối thiểu 12 tiếng/lần). Hệ điều hành quyết định lúc nào đánh thức, nên lời nhắc có thể lệch giờ.
+- **iPhone**: bắt buộc thêm vào màn hình chính rồi mở từ icon đó thì Safari mới cho phép thông báo (iOS 16.4 trở lên). iOS không hỗ trợ Periodic Background Sync, nên chỉ nhắc được khi app đang mở.
+- **Khi app đang mở**: hẹn giờ chính xác bằng `setTimeout`.
+
+Trạng thái giáo án được chép sang Cache Storage (`bn27-state`) vì service worker không đọc được `localStorage`, nhờ đó lần chạy nền vẫn biết hôm nay còn buổi nào chưa xong. `sw.js` đã có sẵn handler `push` để sau này cắm máy chủ đẩy thông báo vào là chạy.
 
 Mục "Đọc bằng Claude" trong phần ảnh Strava dùng API `window.claude.use('sample')`, chỉ hoạt động khi trang được mở trong Claude Artifacts. Khi host trên GitHub Pages, nút này tự ẩn và bạn nhập số liệu tay như bình thường — không ảnh hưởng các tính năng khác.
 
@@ -32,8 +44,9 @@ sections/      nội dung từng tab, nạp vào khung khi mở trang
   strava.html     ảnh Strava
   reference.html  pace, chạy thử 5 km, ngày thi, nguyên tắc tập
 style.css      toàn bộ giao diện và hiệu ứng
-script.js      logic: lịch, tick, biểu đồ, ghi chú, ảnh Strava, pháo hoa, tab, service worker
-sw.js          service worker (cache app-shell để dùng offline)
+script.js      logic: lịch, tick, biểu đồ, ghi chú, ảnh Strava, pháo hoa, tab, nhắc chạy
+quotes.js      200 câu truyền động lực
+sw.js          service worker: cache offline, thông báo nhắc chạy
 manifest.json  khai báo PWA
 icons/         icon app (192/512/apple-touch/favicon)
 ```

@@ -1,5 +1,11 @@
 <section class="next" id="next" aria-live="polite"></section>
 
+<section class="panel quote-card">
+  <div class="quote-head"><span class="eyebrow">Lời nhắc</span><button type="button" class="lnk" id="quote-next">Câu khác</button></div>
+  <blockquote id="quote-q"></blockquote>
+  <cite id="quote-a"></cite>
+</section>
+
 <section class="panel">
   <h2>Số km theo tuần</h2>
   <p class="hint">Cột nhạt là khối lượng dự kiến, phần tô đậm là số km các buổi đã đánh dấu chạy xong.</p>
@@ -11,4 +17,15 @@
   <p class="hint">Chọn thứ mặc định cho từng loại buổi, áp dụng cho cả 12 tuần. Tuần nào bận, đổi riêng ngay trên dòng buổi tập của tuần đó. Nên để buổi chất lượng và buổi dài cách nhau ít nhất 1 ngày.</p>
   <div class="sched-fields" id="sched-fields"></div>
   <div class="panel-actions"><button type="button" class="lnk" id="sched-reset">Về lịch gốc (Thứ 2, 4, 6, Chủ nhật)</button></div>
+</section>
+
+<section class="panel" id="notify">
+  <h2>Nhắc chạy trên điện thoại</h2>
+  <p class="hint">Bật để nhận thông báo vào ngày có buổi chạy mà bạn chưa đánh dấu xong. Cần thêm trang này vào màn hình chính trước, iPhone bắt buộc phải làm vậy mới cho gửi thông báo.</p>
+  <div class="nt-row">
+    <button type="button" class="btn-sm" id="nt-toggle">Bật nhắc nhở</button>
+    <label class="fld nt-time"><span>Giờ nhắc</span><input type="time" id="nt-time" value="18:00"></label>
+    <button type="button" class="btn-sm" id="nt-test" hidden>Gửi thử</button>
+  </div>
+  <p class="hint" id="nt-status"></p>
 </section>

@@ -1,11 +1,13 @@
 // Service worker: app-shell cache so the training plan still opens offline.
 // Bump CACHE when index.html/style.css/script.js change meaningfully.
-var CACHE = 'bn27-cache-v3';
+var CACHE = 'bn27-cache-v4';
+var STATE = 'bn27-state';
 var CORE = [
   './',
   './index.html',
   './style.css',
   './script.js',
+  './quotes.js',
   './manifest.json',
   './sections/overview.html',
   './sections/schedule.html',
@@ -26,7 +28,7 @@ self.addEventListener('install', function (e) {
 self.addEventListener('activate', function (e) {
   e.waitUntil(
     caches.keys().then(function (keys) {
-      return Promise.all(keys.filter(function (k) { return k !== CACHE; }).map(function (k) { return caches.delete(k); }));
+      return Promise.all(keys.filter(function (k) { return k !== CACHE && k !== STATE; }).map(function (k) { return caches.delete(k); }));
     }).then(function () { return self.clients.claim(); })
   );
 });
@@ -70,6 +72,74 @@ self.addEventListener('fetch', function (e) {
         }
         return res;
       });
+    })
+  );
+});
+
+/* ---------- nhắc chạy ---------- */
+// Trang chép trạng thái giáo án vào cache STATE vì service worker không đọc
+// được localStorage. Nhờ vậy lần chạy nền sau vẫn biết hôm nay còn buổi nào.
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+function readState() {
+  return caches.open(STATE)
+    .then(function (c) { return c.match(new URL('state.json', self.location.href).href); })
+    .then(function (r) { return r ? r.json() : null; })
+    .catch(function () { return null; });
+}
+
+function maybeRemind() {
+  return readState().then(function (s) {
+    if (!s || !s.on || !Array.isArray(s.days)) return;
+    var now = new Date();
+    var key = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
+    var hit = null;
+    for (var i = 0; i < s.days.length; i++) {
+      if (s.days[i].date === key && !s.days[i].done) { hit = s.days[i]; break; }
+    }
+    if (!hit) return;
+    var hm = String(s.time || '18:00').split(':');
+    if (now.getHours() < Number(hm[0])) return;
+    return self.registration.showNotification('Hôm nay có buổi chạy', {
+      body: hit.title,
+      icon: './icons/icon-192.png',
+      badge: './icons/icon-192.png',
+      tag: 'bn27-remind',
+      data: { url: './index.html' }
+    });
+  });
+}
+
+self.addEventListener('periodicsync', function (e) {
+  if (e.tag === 'bn27-remind') e.waitUntil(maybeRemind());
+});
+
+self.addEventListener('sync', function (e) {
+  if (e.tag === 'bn27-remind') e.waitUntil(maybeRemind());
+});
+
+// Sẵn cho trường hợp sau này có máy chủ đẩy thông báo thật.
+self.addEventListener('push', function (e) {
+  var d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (x) { d = { body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Giáo án Bắc Ninh 10K', {
+    body: d.body || '',
+    icon: './icons/icon-192.png',
+    badge: './icons/icon-192.png',
+    tag: d.tag || 'bn27-push',
+    data: { url: d.url || './index.html' }
+  }));
+});
+
+self.addEventListener('notificationclick', function (e) {
+  e.notification.close();
+  var url = (e.notification.data && e.notification.data.url) || './index.html';
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
+      for (var i = 0; i < list.length; i++) {
+        if ('focus' in list[i]) return list[i].focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
     })
   );
 });

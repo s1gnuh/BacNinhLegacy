@@ -343,6 +343,7 @@
     if (bar) bar.setAttribute('aria-valuenow', st.pct);
     if (el('plabel')) el('plabel').textContent = st.n + '/' + st.total + ' buổi đã chạy';
     if (el('pkm')) el('pkm').textContent = fmtKm(st.km) + ' km';
+    NT.sync();
   }
 
   function renderNext() {
@@ -431,7 +432,155 @@
 
     FX.party(tier, anchor);
     toast(pick(CHEER[tier]), sub);
+    renderQuote();
   }
+
+  /* ================= câu truyền động lực ================= */
+  var lastQuote = -1;
+  function renderQuote() {
+    var qs = window.BN_QUOTES, qEl = el('quote-q'), aEl = el('quote-a');
+    if (!qEl || !aEl || !qs || !qs.length) return;
+    var i = (Math.random() * qs.length) | 0;
+    if (qs.length > 1) while (i === lastQuote) i = (Math.random() * qs.length) | 0;
+    lastQuote = i;
+    qEl.textContent = '“' + qs[i].q + '”';
+    aEl.textContent = '— ' + qs[i].a;
+  }
+
+  /* ================= nhắc chạy qua thông báo ================= */
+  var NT = (function () {
+    var KEY = 'bn27-notify';
+    var cfg = { on: false, time: '18:00' };
+    try {
+      var s = JSON.parse(store.get(KEY) || 'null');
+      if (s && typeof s === 'object') {
+        cfg.on = !!s.on;
+        if (/^\d{2}:\d{2}$/.test(s.time)) cfg.time = s.time;
+      }
+    } catch (e) {}
+    var timer = 0;
+
+    function save() { store.set(KEY, JSON.stringify(cfg)); }
+    function canNotify() { return 'Notification' in window && 'serviceWorker' in navigator; }
+    function granted() { return canNotify() && Notification.permission === 'granted'; }
+    function stateUrl() { return new URL('state.json', location.href).href; }
+
+    // Service worker không đọc được localStorage, nên trạng thái được chép
+    // sang Cache để lần chạy nền sau còn biết hôm nay có buổi nào chưa xong.
+    function syncState() {
+      if (!('caches' in window)) return Promise.resolve();
+      var days = all().filter(function (x) { return x.s.type !== 'rest'; }).map(function (x) {
+        return { date: iso(x.date), title: x.s.title, done: !!done[x.id] };
+      });
+      var body = JSON.stringify({ on: cfg.on, time: cfg.time, days: days });
+      return caches.open('bn27-state')
+        .then(function (c) { return c.put(stateUrl(), new Response(body, { headers: { 'Content-Type': 'application/json' } })); })
+        .catch(function () {});
+    }
+
+    function todayUndone() {
+      var key = iso(today0());
+      return all().filter(function (x) { return x.s.type !== 'rest' && iso(x.date) === key && !done[x.id]; })[0] || null;
+    }
+
+    function show(title, body) {
+      if (!granted()) return Promise.resolve();
+      return navigator.serviceWorker.ready.then(function (reg) {
+        return reg.showNotification(title, {
+          body: body, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png',
+          tag: 'bn27-remind', data: { url: location.href }
+        });
+      }).catch(function () {});
+    }
+
+    function remindAt() {
+      var hm = cfg.time.split(':');
+      var at = new Date();
+      at.setHours(+hm[0], +hm[1], 0, 0);
+      return at;
+    }
+
+    function schedule() {
+      clearTimeout(timer);
+      if (!cfg.on || !granted()) return;
+      if (!todayUndone()) return;
+      var ms = remindAt() - new Date();
+      if (ms <= 0) return;
+      // chỉ đặt được khi trang còn mở; đóng tab thì phần chạy nền lo tiếp
+      timer = setTimeout(function () {
+        var y = todayUndone();
+        if (y) show('Hôm nay có buổi chạy', y.s.title);
+      }, Math.min(ms, 0x7fffffff));
+    }
+
+    // Đã quá giờ nhắc mà buổi hôm nay vẫn chưa xong thì nhắc ngay.
+    function nudgeIfDue() {
+      var x = todayUndone();
+      if (!x || new Date() < remindAt()) return false;
+      show('Hôm nay có buổi chạy', x.s.title);
+      return true;
+    }
+
+    function registerPeriodic() {
+      if (!('serviceWorker' in navigator)) return;
+      navigator.serviceWorker.ready.then(function (reg) {
+        if (!reg.periodicSync) return;
+        return reg.periodicSync.register('bn27-remind', { minInterval: 12 * 60 * 60 * 1000 });
+      }).catch(function () {});
+    }
+
+    function render() {
+      var btn = el('nt-toggle'), st = el('nt-status'), tm = el('nt-time'), test = el('nt-test');
+      if (!btn || !st) return;
+      if (tm) tm.value = cfg.time;
+      if (test) test.hidden = !granted() || !cfg.on;
+
+      if (!canNotify()) {
+        btn.disabled = true;
+        btn.textContent = 'Không dùng được';
+        st.textContent = 'Trình duyệt này chưa cho gửi thông báo. Trên iPhone, hãy bấm Chia sẻ → Thêm vào màn hình chính, rồi mở lại từ icon đó.';
+        return;
+      }
+      btn.disabled = false;
+      if (Notification.permission === 'denied') {
+        btn.textContent = 'Đã bị chặn';
+        btn.disabled = true;
+        st.textContent = 'Bạn đã chặn thông báo cho trang này. Mở lại trong cài đặt trình duyệt rồi quay lại đây.';
+        return;
+      }
+      btn.textContent = cfg.on && granted() ? 'Tắt nhắc nhở' : 'Bật nhắc nhở';
+      st.textContent = cfg.on && granted()
+        ? 'Đang bật, nhắc lúc ' + cfg.time + ' vào ngày có buổi chạy chưa đánh dấu xong. Không có máy chủ đẩy thông báo nên lời nhắc đến khi điện thoại đánh thức app chạy nền hoặc khi bạn mở app, giờ giấc có thể lệch.'
+        : 'Đang tắt.';
+    }
+
+    function enable() {
+      if (!canNotify()) return;
+      Notification.requestPermission().then(function (p) {
+        if (p === 'granted') {
+          cfg.on = true; save();
+          syncState(); registerPeriodic();
+          // Dùng chung tag nên chỉ gửi một cái: ưu tiên lời nhắc thật.
+          if (!nudgeIfDue()) show('Đã bật nhắc chạy', 'Sẽ nhắc lúc ' + cfg.time + ' vào ngày có buổi chạy.');
+          schedule();
+        }
+        render();
+      }).catch(function () { render(); });
+    }
+
+    function disable() { cfg.on = false; save(); clearTimeout(timer); syncState(); render(); }
+
+    return {
+      render: render,
+      sync: function () { syncState(); schedule(); },
+      toggle: function () { if (cfg.on && granted()) disable(); else enable(); },
+      setTime: function (v) {
+        if (!/^\d{2}:\d{2}$/.test(v)) return;
+        cfg.time = v; save(); syncState(); schedule(); render();
+      },
+      test: function () { show('Thử thông báo', 'Nếu bạn thấy dòng này thì nhắc nhở đang chạy được.'); }
+    };
+  })();
 
   /* ================= tab ================= */
   var TAB_IDS = ['overview', 'schedule', 'strava', 'ref'];
@@ -690,6 +839,10 @@
     on('m4', 'click', function () { mode = 4; store.set('bn27-mode', '4'); renderAll(); });
     on('m3', 'click', function () { mode = 3; store.set('bn27-mode', '3'); renderAll(); });
     on('jump-now', 'click', jumpNow);
+    on('quote-next', 'click', renderQuote);
+    on('nt-toggle', 'click', function () { NT.toggle(); });
+    on('nt-time', 'change', function (e) { NT.setTime(e.target.value); });
+    on('nt-test', 'click', function () { NT.test(); });
 
     on('tabs', 'click', function (e) {
       var b = e.target && e.target.closest ? e.target.closest('[data-tab]') : null;
@@ -786,6 +939,8 @@
     bindEvents();
     setTab(store.get('bn27-tab') || 'overview', false);
     renderAll();
+    renderQuote();
+    NT.render();
     countUp(el('days'), Math.max(0, Math.ceil((RACE - today0()) / 864e5)));
     loadLogs().then(function () { renderAll(); });
 
