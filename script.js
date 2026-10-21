@@ -620,6 +620,46 @@
       pushTimer = setTimeout(function () { postSub(pushSub); }, 2000);
     }
 
+    // Máy chủ trả mã lỗi cụ thể, dịch ra việc cần làm thay vì báo chung chung.
+    var PUSH_ERR = {
+      push_not_configured: 'Thiếu VAPID_PRIVATE_KEY trên Vercel. Dán đủ biến môi trường rồi deploy lại.',
+      storage_not_configured: 'Chưa nối kho Upstash Redis trên Vercel (Project → Storage → Connect), hoặc nối xong chưa deploy lại.',
+      subscription_not_registered: 'Máy này chưa được lưu lên máy chủ. Tắt rồi bật lại nhắc nhở.',
+      no_subscriptions: 'Chưa có máy nào đăng ký nhận thông báo.',
+      need_subscription_or_secret: 'Thiếu thông tin đăng ký khi gọi máy chủ.'
+    };
+
+    function tryPush(allowRetry) {
+      return fetch('api/test-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: pushSub })
+      }).then(function (r) {
+        return r.json().catch(function () { return null; }).then(function (d) { return { status: r.status, d: d }; });
+      }).then(function (out) {
+        var d = out.d || {};
+        if (out.status === 200 && d.ok) return '';
+
+        // Subscription chưa nằm trong kho: lưu lại rồi thử đúng một lần nữa.
+        if (d.error === 'subscription_not_registered' && allowRetry) {
+          return postSub(pushSub).then(function () { return tryPush(false); });
+        }
+        if (out.status === 404 && !d.error) return 'Máy chủ không có /api/test-push. Bản deploy có thể chưa xong.';
+        if (PUSH_ERR[d.error]) return PUSH_ERR[d.error];
+
+        // Dịch vụ push của trình duyệt từ chối: hay gặp khi khoá VAPID đổi
+        // sau lúc máy này đăng ký.
+        var e0 = (d.errors && d.errors[0]) || null;
+        if (e0 && (e0.status === 403 || e0.status === 400)) {
+          return 'Khoá VAPID không khớp với đăng ký cũ của máy này. Tắt rồi bật lại nhắc nhở.';
+        }
+        if (e0) return 'Dịch vụ push trả lỗi ' + e0.status + ': ' + e0.message;
+        return 'Máy chủ trả lỗi ' + out.status + (d.error ? ' (' + d.error + ')' : '') + '.';
+      }).catch(function () {
+        return 'Không gọi được máy chủ. Kiểm tra mạng hoặc trang đã deploy chưa.';
+      });
+    }
+
     function disablePush() {
       if (!pushSub) return Promise.resolve();
       var sub = pushSub;
@@ -695,6 +735,26 @@
         }
       },
       sync: function () { syncState(); schedule(); },
+      // Hỏi thẳng máy chủ xem còn thiếu mảnh nào, đỡ phải đoán.
+      health: function () {
+        var st = el('nt-status');
+        if (st) st.textContent = 'Đang kiểm tra máy chủ...';
+        fetch('api/health')
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (d) {
+            if (!st) return;
+            if (!d) { st.textContent = 'Không gọi được /api/health. Bản deploy có thể chưa xong.'; return; }
+            var bad = [];
+            if (!d.vapidPublic) bad.push('thiếu VAPID_PUBLIC_KEY');
+            if (!d.vapidPrivate) bad.push('thiếu VAPID_PRIVATE_KEY');
+            if (d.storage === 'missing_env') bad.push('chưa nối kho Upstash Redis');
+            if (d.storage === 'unreachable') bad.push('không kết nối được Upstash (' + (d.storageError || '') + ')');
+            st.textContent = bad.length
+              ? 'Máy chủ còn thiếu: ' + bad.join('; ') + '. Sửa trên Vercel rồi deploy lại.'
+              : 'Máy chủ sẵn sàng, đang có ' + d.subscriptions + ' máy đăng ký nhận thông báo.';
+          })
+          .catch(function () { if (st) st.textContent = 'Không gọi được /api/health.'; });
+      },
       toggle: function () { if (cfg.on && granted()) disable(); else enable(); },
       setTime: function (v) {
         if (!okTime(v)) return;
@@ -707,15 +767,12 @@
           show('Thử thông báo', 'Nếu bạn thấy dòng này thì nhắc nhở đang chạy được.');
           return;
         }
-        fetch('api/test-push', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ subscription: pushSub })
-        }).then(function (r) { return r.ok ? r.json() : null; })
-          .then(function (d) {
-            if (!d || !d.ok) show('Thử thông báo', 'Máy chủ chưa gửi được, kiểm tra lại biến môi trường trên Vercel.');
-          })
-          .catch(function () { show('Thử thông báo', 'Không gọi được máy chủ, đây là thông báo cục bộ.'); });
+        var st = el('nt-status');
+        if (st) st.textContent = 'Đang gửi thử qua máy chủ...';
+        tryPush(true).then(function (msg) {
+          if (msg && st) st.textContent = msg;
+          else render();
+        });
       }
     };
   })();
@@ -981,6 +1038,7 @@
     on('nt-toggle', 'click', function () { NT.toggle(); });
     on('nt-time', 'change', function (e) { NT.setTime(e.target.value); });
     on('nt-test', 'click', function () { NT.test(); });
+    on('nt-health', 'click', function () { NT.health(); });
 
     on('tabs', 'click', function (e) {
       var b = e.target && e.target.closest ? e.target.closest('[data-tab]') : null;

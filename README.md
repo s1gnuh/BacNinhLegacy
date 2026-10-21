@@ -100,6 +100,7 @@ api/           serverless function trên Vercel
   subscribe.js    lưu/xoá subscription kèm trạng thái giáo án
   cron.js         chạy 6:30 sáng, nhắc buổi chạy hoặc gợi ý bài tập
   test-push.js    bắn thử một thông báo đẩy ngay
+  health.js       báo xem đã cấu hình đủ chưa
 lib/store.js   kho subscription trên Upstash Redis
 vercel.json    header cache và lịch cron
 manifest.json  khai báo PWA
