@@ -1,5 +1,133 @@
 (function () {
-  var START = new Date(2026, 9, 19), RACE = new Date(2027, 0, 10);
+
+  /* ================= hiệu ứng ăn mừng (canvas) ================= */
+  var FX = (function () {
+    var cvs = null, ctx = null, parts = [], raf = 0, w = 0, h = 0, dpr = 1, booted = false;
+    var COLORS = ['#46C9C1', '#FF9460', '#9EABFF', '#FFD166', '#FF5D8F', '#FFFFFF'];
+    var TIER = {
+      easy:      { spark: 26, conf: 16, ring: 1, rocket: 0, power: 4.2 },
+      quality:   { spark: 38, conf: 26, ring: 1, rocket: 1, power: 5.0 },
+      long:      { spark: 42, conf: 30, ring: 1, rocket: 1, power: 5.2 },
+      week:      { spark: 58, conf: 44, ring: 2, rocket: 3, power: 6.0 },
+      milestone: { spark: 68, conf: 58, ring: 2, rocket: 4, power: 6.4 },
+      race:      { spark: 92, conf: 84, ring: 3, rocket: 6, power: 7.0 }
+    };
+
+    function reduced() {
+      try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; }
+    }
+    function boot() {
+      if (booted) return !!ctx;
+      booted = true;
+      cvs = document.getElementById('fx');
+      if (!cvs || !cvs.getContext) return false;
+      ctx = cvs.getContext('2d');
+      if (!ctx) return false;
+      resize();
+      window.addEventListener('resize', resize);
+      return true;
+    }
+    function resize() {
+      if (!ctx) return;
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      w = window.innerWidth; h = window.innerHeight;
+      cvs.width = Math.round(w * dpr); cvs.height = Math.round(h * dpr);
+      cvs.style.width = w + 'px'; cvs.style.height = h + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    function rnd(a, b) { return a + Math.random() * (b - a); }
+    function pick(a) { return a[(Math.random() * a.length) | 0]; }
+
+    function spark(x, y, power) {
+      var a = rnd(0, Math.PI * 2), sp = rnd(power * 0.25, power);
+      return { k: 's', x: x, y: y, px: x, py: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+               g: 0.085, drag: 0.975, delay: 0, life: 0, max: rnd(38, 70), c: pick(COLORS), r: rnd(1.4, 3) };
+    }
+    function conf(x, y, power) {
+      var a = rnd(0, Math.PI * 2), sp = rnd(power * 0.3, power * 0.9);
+      return { k: 'c', x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.4,
+               g: 0.14, drag: 0.985, delay: 0, life: 0, max: rnd(70, 125), c: pick(COLORS),
+               bw: rnd(5, 9), bh: rnd(8, 14), rot: rnd(0, Math.PI), vr: rnd(-0.22, 0.22), sway: rnd(0.02, 0.06), ph: rnd(0, 6) };
+    }
+    function ring(x, y, delay) {
+      return { k: 'r', x: x, y: y, delay: delay || 0, life: 0, max: 26, c: pick(COLORS), r: 6, vr: 4.4 };
+    }
+    function rocket(power, delay) {
+      var x = rnd(w * 0.15, w * 0.85);
+      return { k: 'k', x: x, y: h + 10, px: x, py: h + 10, vx: rnd(-0.7, 0.7), vy: -rnd(9.5, 13.5),
+               g: 0.16, drag: 0.995, delay: delay || 0, life: 0, max: rnd(32, 50), c: pick(COLORS), r: 2.2, power: power };
+    }
+    function explode(into, x, y, power, n) {
+      for (var i = 0; i < n; i++) into.push(spark(x, y, power));
+      into.push(ring(x, y, 0));
+    }
+
+    function tick() {
+      raf = 0;
+      ctx.clearRect(0, 0, w, h);
+      var next = [], i, p;
+      for (i = 0; i < parts.length; i++) {
+        p = parts[i];
+        if (p.delay > 0) { p.delay--; next.push(p); continue; }
+        p.life++;
+        var t = p.life / p.max;
+        var fade = t > 0.65 ? Math.max(0, 1 - (t - 0.65) / 0.35) : 1;
+
+        if (p.k === 's' || p.k === 'k') {
+          p.px = p.x; p.py = p.y;
+          p.vx *= p.drag; p.vy = p.vy * p.drag + p.g;
+          p.x += p.vx; p.y += p.vy;
+          ctx.globalAlpha = fade;
+          ctx.strokeStyle = p.c; ctx.lineWidth = p.r; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(p.px, p.py); ctx.lineTo(p.x, p.y); ctx.stroke();
+        } else if (p.k === 'c') {
+          p.ph += p.sway;
+          p.vx *= p.drag; p.vy = p.vy * p.drag + p.g;
+          p.x += p.vx + Math.cos(p.ph) * 0.9; p.y += p.vy;
+          p.rot += p.vr;
+          ctx.globalAlpha = fade;
+          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+          ctx.fillStyle = p.c;
+          ctx.fillRect(-p.bw / 2, -p.bh / 2, p.bw, Math.max(1, p.bh * Math.abs(Math.cos(p.ph))));
+          ctx.restore();
+        } else {
+          p.r += p.vr; p.vr *= 0.93;
+          ctx.globalAlpha = Math.max(0, 1 - t) * 0.6;
+          ctx.strokeStyle = p.c; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.stroke();
+        }
+
+        var spent = p.life >= p.max;
+        if (!spent && p.y < h + 90) next.push(p);
+        else if (spent && p.k === 'k') explode(next, p.x, p.y, p.power, 26);
+      }
+      ctx.globalAlpha = 1;
+      parts = next;
+      if (parts.length) raf = requestAnimationFrame(tick);
+      else ctx.clearRect(0, 0, w, h);
+    }
+
+    return {
+      party: function (tier, el) {
+        if (reduced() || !boot()) return;
+        var cfg = TIER[tier] || TIER.easy;
+        var x = w / 2, y = h * 0.4, r, i;
+        if (el && el.getBoundingClientRect) {
+          r = el.getBoundingClientRect();
+          if (r.width || r.height) { x = r.left + r.width / 2; y = r.top + r.height / 2; }
+        }
+        for (i = 0; i < cfg.spark; i++) parts.push(spark(x, y, cfg.power));
+        for (i = 0; i < cfg.conf; i++) parts.push(conf(x, y, cfg.power));
+        for (i = 0; i < cfg.ring; i++) parts.push(ring(x, y, i * 7));
+        for (i = 0; i < cfg.rocket; i++) parts.push(rocket(cfg.power, 8 + i * 13));
+        if (parts.length > 1000) parts = parts.slice(parts.length - 1000);
+        if (!raf) raf = requestAnimationFrame(tick);
+      }
+    };
+  })();
+
+  /* ================= dữ liệu giáo án ================= */
+  var RACE = new Date(2027, 0, 10);
   var DAYS = [
     { k: 'mon', def: 0, name: 'Chạy nhẹ 1' }, { k: 'wed', def: 2, name: 'Chất lượng' },
     { k: 'fri', def: 4, name: 'Chạy nhẹ 2' }, { k: 'sun', def: 6, name: 'Chạy dài' }
@@ -12,7 +140,7 @@
     { ph: 'Nền tảng', e: [5, 5], l: 8, q: { t: '3 × 1 km @ 6:40', d: WARM + '3 lần 1 km @ 6:40, nghỉ 2 phút, hạ nhiệt 10 phút.', km: 6 } },
     { ph: 'Nền tảng', e: [4, 4], l: 6, nt: 'Tuần nhẹ: giảm khối lượng để cơ thể hấp thu những tuần trước.', q: { t: '3 × 1 km @ 6:40', d: WARM + '3 lần 1 km @ 6:40, nghỉ 2 phút, hạ nhiệt 10 phút.', km: 5.5 } },
     { ph: 'Xây sức bền', e: [5, 5], l: 9, q: { t: 'Tempo 3 km @ 6:55', d: WARM + '3 km liền @ 6:55, hạ nhiệt 10 phút.', km: 6 } },
-    { ph: 'Xây sức bền', e: [5, 5], l: 9, nt: 'Buổi chất lượng tuần này là chạy thử 5 km. Kết quả quyết định mục tiêu pace, xem bảng ở cuối trang.', q: { t: 'Chạy thử 5 km hết sức', d: 'Khởi động 15 phút nhẹ, 5 km nhanh nhất có thể mà không đi bộ, hạ nhiệt 10 phút. Chạy trên đường phẳng, ghi lại thời gian.', km: 7 } },
+    { ph: 'Xây sức bền', e: [5, 5], l: 9, nt: 'Buổi chất lượng tuần này là chạy thử 5 km. Kết quả quyết định mục tiêu pace, xem bảng ở tab Tham khảo.', q: { t: 'Chạy thử 5 km hết sức', d: 'Khởi động 15 phút nhẹ, 5 km nhanh nhất có thể mà không đi bộ, hạ nhiệt 10 phút. Chạy trên đường phẳng, ghi lại thời gian.', km: 7 } },
     { ph: 'Xây sức bền', e: [5, 5], l: 10, nt: 'Chỉnh pace theo kết quả 5 km ở tuần 6: đoạn 1 km chạy bằng pace 5 km, tempo và đoạn 2 km chậm hơn pace 5 km khoảng 10–15 giây.', q: { t: 'Tempo 4 km @ 6:55', d: WARM + '4 km liền @ 6:55, hạ nhiệt 10 phút.', km: 7 } },
     { ph: 'Xây sức bền', e: [4, 4], l: 7, nt: 'Tuần nhẹ: giảm khối lượng, giữ một buổi nhanh ngắn.', q: { t: '3 × 1 km @ 6:35', d: WARM + '3 lần 1 km @ 6:35, nghỉ 2 phút, hạ nhiệt 10 phút.', km: 5.5 } },
     { ph: 'Đặc thù cự ly', e: [5, 5], l: 11, nt: 'Giữ pace tempo đã chỉnh theo kết quả 5 km ở tuần 6.', q: { t: 'Tempo 5 km @ 6:50', d: WARM + '5 km liền @ 6:50, hạ nhiệt 10 phút.', km: 8 } },
@@ -39,6 +167,7 @@
     return s;
   });
 
+  /* ================= trạng thái lưu trong trình duyệt ================= */
   var LABEL = { easy: 'Nhẹ', quality: 'Chất lượng', long: 'Dài', race: 'Thi đấu', rest: 'Nghỉ' };
   var store = { get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
                 set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
@@ -56,6 +185,7 @@
   } catch (e) {}
   function saveSched() { store.set('bn27-sched', JSON.stringify(sched)); }
 
+  /* ================= tiện ích ================= */
   function slotIdx(k) { for (var i = 0; i < DAYS.length; i++) if (DAYS[i].k === k) return i; return 0; }
   function offFor(wi, k) {
     if (sessions[wi][k].type === 'race') return 6;
@@ -71,6 +201,8 @@
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function options(sel) { return WD.map(function (n, i) { return '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>' + n + '</option>'; }).join(''); }
   function hasOverride(wi) { return !!(sched.wk[wi] && Object.keys(sched.wk[wi]).length); }
+  function el(i) { return document.getElementById(i); }
+  function pick(a) { return a[(Math.random() * a.length) | 0]; }
   function noteHtml(key) {
     var v = notes[key] || '';
     return '<details class="note-box"' + (v ? ' open' : '') + '><summary>Ghi chú</summary><textarea class="note-ta" data-note="' + key + '" placeholder="Cảm nhận, đau mỏi, thời tiết...">' + esc(v) + '</textarea></details>';
@@ -88,23 +220,46 @@
     out.sort(function (a, b) { return a.date - b.date || a.si - b.si; });
     return out;
   }
+  function findSession(sid) {
+    var list = all();
+    for (var i = 0; i < list.length; i++) if (list[i].id === sid) return list[i];
+    return null;
+  }
+  function stats() {
+    var list = all().filter(function (x) { return x.s.type !== 'rest'; });
+    var n = 0, km = 0;
+    list.forEach(function (x) { if (done[x.id]) { n++; km += x.s.km; } });
+    return { n: n, total: list.length, km: km, pct: list.length ? Math.round(n / list.length * 100) : 0 };
+  }
+  function weekComplete(wi) {
+    var items = all().filter(function (x) { return x.wi === wi && x.s.type !== 'rest'; });
+    return items.length > 0 && items.every(function (x) { return !!done[x.id]; });
+  }
+  function weekKm(wi) {
+    return all().filter(function (x) { return x.wi === wi; }).reduce(function (a, x) { return a + x.s.km; }, 0);
+  }
 
+  /* ================= render ================= */
   function renderSched() {
+    var box = el('sched-fields');
+    if (!box) return;
     var html = '';
     DAYS.forEach(function (dy, i) {
       if (!visible(dy)) return;
       html += '<div class="sf"><label for="def-' + dy.k + '">' + dy.name + '</label><select id="def-' + dy.k + '" data-def="' + i + '">' + options(sched.def[i]) + '</select></div>';
     });
-    document.getElementById('sched-fields').innerHTML = html;
+    box.innerHTML = html;
   }
 
   function renderWeeks() {
+    var box = el('weeks');
+    if (!box) return;
     var t0 = today0(), html = '', list = all();
     sessions.forEach(function (s, wi) {
       var start = dayOf(wi, 0), end = dayOf(wi, 6);
       var cur = t0 >= start && t0 <= end;
       var items = list.filter(function (x) { return x.wi === wi; });
-      var tot = 0, rows = '', seen = {}, dup = false;
+      var tot = 0, rows = '', seen = {}, dup = false, full = weekComplete(wi);
       items.forEach(function (x) {
         tot += x.s.km;
         if (seen[x.off]) dup = true;
@@ -122,23 +277,44 @@
           '<div class="what"><div><span class="chip t-' + x.s.type + '">' + LABEL[x.s.type] + '</span></div><strong>' + esc(x.s.title) + '</strong><p>' + esc(x.s.d) + '</p>' + actualHtml(key) + noteHtml(key) + '</div>' +
           '<div class="kmv num">' + (x.s.km ? fmtKm(x.s.km) + ' km' : '') + '</div></div>';
       });
-      html += '<article class="week' + (cur ? ' current' : '') + '">' +
+      html += '<article class="week' + (cur ? ' current' : '') + (full ? ' full' : '') + '">' +
         '<div class="wk-head"><h3>Tuần ' + (wi + 1) + '</h3><span class="dates num">' + fmt(start) + ' – ' + fmt(end) + '</span>' +
         (cur ? '<span class="chip tag-now">Tuần này</span>' : '') +
+        (full ? '<span class="chip t-easy chip-full">Xong cả tuần</span>' : '') +
         '<span class="sp"></span><span class="km num">' + fmtKm(tot) + ' km</span></div>' +
         '<div class="wk-phase"><span>Giai đoạn: ' + W[wi].ph + '</span>' +
         (dup ? '<span class="chip t-quality">Có 2 buổi trùng ngày</span>' : '') +
         (hasOverride(wi) ? '<button type="button" class="lnk" data-reset="' + wi + '">Đặt lại ngày tuần này</button>' : '') + '</div>' + rows +
         (W[wi].nt ? '<div class="wk-note">' + esc(W[wi].nt) + '</div>' : '') + '</article>';
     });
-    document.getElementById('weeks').innerHTML = html;
+    box.innerHTML = html;
   }
 
+  // Cập nhật tại chỗ thay vì vẽ lại cả danh sách tuần, để không xoá mất
+  // hiệu ứng của dòng vừa tick và ô đang được thao tác.
+  function syncWeekBadge(wi) {
+    var card = document.querySelectorAll('#weeks .week')[wi];
+    if (!card) return;
+    var full = weekComplete(wi), head = card.querySelector('.wk-head');
+    card.classList.toggle('full', full);
+    if (!head) return;
+    var chip = head.querySelector('.chip-full');
+    if (full && !chip) {
+      chip = document.createElement('span');
+      chip.className = 'chip t-easy chip-full';
+      chip.textContent = 'Xong cả tuần';
+      head.insertBefore(chip, head.querySelector('.sp'));
+    } else if (!full && chip) {
+      chip.parentNode.removeChild(chip);
+    }
+  }
+
+  var chartSeen = false;
   function renderChart() {
-    var box = document.getElementById('chart');
+    var box = el('chart');
     if (!box) return;
     var list = all(), t0 = today0();
-    var weeks = W.map(function (w, wi) {
+    var weeks = sessions.map(function (s, wi) {
       var planned = 0, actual = 0;
       list.filter(function (x) { return x.wi === wi; }).forEach(function (x) {
         planned += x.s.km;
@@ -152,35 +328,35 @@
       var cur = t0 >= start && t0 <= end;
       var ph = Math.max(2, Math.round(w.planned / max * 100));
       var af = w.planned ? Math.round(w.actual / w.planned * 100) : 0;
-      return '<div class="cweek' + (cur ? ' now' : '') + '">' +
+      return '<div class="cweek' + (cur ? ' now' : '') + '" style="--i:' + w.wi + '">' +
         '<span class="cval num">' + fmtKm(w.planned) + '</span>' +
         '<div class="cbar" style="--h:' + ph + '%" title="Tuần ' + (w.wi + 1) + ': ' + fmtKm(w.actual) + ' / ' + fmtKm(w.planned) + ' km đã chạy">' +
         (af > 0 ? '<div class="cfill" style="--f:' + af + '%"></div>' : '') +
         '</div><span class="clabel num">T' + (w.wi + 1) + '</span></div>';
     }).join('');
+    if (!chartSeen) { chartSeen = true; box.classList.add('in'); }
   }
 
   function renderProgress() {
-    var list = all().filter(function (x) { return x.s.type !== 'rest'; });
-    var n = 0, km = 0;
-    list.forEach(function (x) { if (done[x.id]) { n++; km += x.s.km; } });
-    var pct = list.length ? Math.round(n / list.length * 100) : 0;
-    document.getElementById('pfill').style.width = pct + '%';
-    document.getElementById('pbar').setAttribute('aria-valuenow', pct);
-    document.getElementById('plabel').textContent = n + '/' + list.length + ' buổi đã chạy';
-    document.getElementById('pkm').textContent = fmtKm(km) + ' km';
+    var st = stats(), fill = el('pfill'), bar = el('pbar');
+    if (fill) fill.style.width = st.pct + '%';
+    if (bar) bar.setAttribute('aria-valuenow', st.pct);
+    if (el('plabel')) el('plabel').textContent = st.n + '/' + st.total + ' buổi đã chạy';
+    if (el('pkm')) el('pkm').textContent = fmtKm(st.km) + ' km';
   }
 
   function renderNext() {
-    var t0 = today0(), el = document.getElementById('next');
+    var box = el('next');
+    if (!box) return;
+    var t0 = today0();
     var nxt = all().filter(function (x) { return x.s.type !== 'rest' && !done[x.id] && x.date >= t0; })[0];
     if (!nxt) {
-      el.innerHTML = '<div class="when"><span class="chip t-rest">Hết lịch</span></div><h2>Không còn buổi nào phía trước</h2><p class="detail">Mọi buổi từ hôm nay đã được đánh dấu hoặc đã qua.</p>';
+      box.innerHTML = '<div class="when"><span class="chip t-rest">Hết lịch</span></div><h2>Không còn buổi nào phía trước</h2><p class="detail">Mọi buổi từ hôm nay đã được đánh dấu hoặc đã qua.</p>';
       return;
     }
     var diff = Math.round((nxt.date - t0) / 864e5);
-    var when = diff === 0 ? 'Tối nay' : diff === 1 ? 'Ngày mai' : 'Còn ' + diff + ' ngày nữa';
-    el.innerHTML =
+    var when = diff === 0 ? 'Hôm nay' : diff === 1 ? 'Ngày mai' : 'Còn ' + diff + ' ngày nữa';
+    box.innerHTML =
       '<div class="when"><span class="chip tag-now">' + when + '</span><span class="num">' + WD[nxt.off] + ' ' + fmt(nxt.date) + ' · Tuần ' + (nxt.wi + 1) + '</span><span class="chip t-' + nxt.s.type + '">' + LABEL[nxt.s.type] + '</span></div>' +
       '<h2>' + esc(nxt.s.title) + '</h2><p class="detail">' + esc(nxt.s.d) + '</p>' +
       (nxt.s.note ? '<p class="note">' + esc(nxt.s.note) + '</p>' : '') +
@@ -189,66 +365,99 @@
 
   function renderAll(focusId) {
     var d = Math.max(0, Math.ceil((RACE - today0()) / 864e5));
-    document.getElementById('days').textContent = d;
-    document.getElementById('m4').setAttribute('aria-pressed', mode === 4);
-    document.getElementById('m3').setAttribute('aria-pressed', mode === 3);
+    if (el('days')) el('days').textContent = d;
+    if (el('m4')) el('m4').setAttribute('aria-pressed', mode === 4);
+    if (el('m3')) el('m3').setAttribute('aria-pressed', mode === 3);
     renderSched(); renderChart(); renderWeeks(); renderProgress(); renderNext(); renderStrava();
-    if (focusId) { var f = document.getElementById(focusId); if (f) f.focus(); }
+    if (focusId) { var f = el(focusId); if (f) f.focus(); }
   }
 
   function setDone(k, v) {
     if (v) done[k] = 1; else delete done[k];
     store.set('bn27-done', JSON.stringify(done));
   }
-
   function setNote(k, v) {
     var t = String(v || '').trim();
     if (t) notes[k] = t; else delete notes[k];
     store.set('bn27-notes', JSON.stringify(notes));
   }
 
-  document.getElementById('weeks').addEventListener('change', function (e) {
-    var t = e.target;
-    var sel = t && t.getAttribute('data-sel');
-    if (sel) {
-      var p = sel.split('|'), wi = +p[0];
-      (sched.wk[wi] = sched.wk[wi] || {})[p[1]] = +t.value;
-      saveSched(); renderAll(t.id);
-      return;
-    }
-    var k = t && t.getAttribute('data-id');
-    if (!k) return;
-    setDone(k, t.checked);
-    var row = t.closest('.row'); if (row) row.classList.toggle('done', t.checked);
-    renderChart(); renderProgress(); renderNext();
-  });
-  document.getElementById('weeks').addEventListener('click', function (e) {
-    var r = e.target && e.target.getAttribute('data-reset');
-    if (r == null) return;
-    delete sched.wk[r]; saveSched(); renderAll();
-  });
-  document.getElementById('weeks').addEventListener('input', function (e) {
-    var t = e.target, k = t && t.getAttribute('data-note');
-    if (!k) return;
-    setNote(k, t.value);
-  });
-  document.getElementById('sched-fields').addEventListener('change', function (e) {
-    var i = e.target && e.target.getAttribute('data-def');
-    if (i == null) return;
-    sched.def[+i] = +e.target.value; saveSched(); renderAll(e.target.id);
-  });
-  document.getElementById('sched-reset').addEventListener('click', function () {
-    sched = { def: defaults(), wk: {} }; saveSched(); renderAll();
-  });
-  document.getElementById('next').addEventListener('click', function (e) {
-    var k = e.target && e.target.getAttribute('data-done');
-    if (!k) return;
-    setDone(k, true); renderAll();
-  });
-  document.getElementById('m4').addEventListener('click', function () { mode = 4; store.set('bn27-mode', '4'); renderAll(); });
-  document.getElementById('m3').addEventListener('click', function () { mode = 3; store.set('bn27-mode', '3'); renderAll(); });
+  /* ================= chúc mừng ================= */
+  var CHEER = {
+    easy: ['Xong buổi nhẹ!', 'Nhẹ nhàng mà chắc!', 'Thêm một buổi vào sổ!', 'Đều đặn là thắng!'],
+    quality: ['Buổi chất lượng xong!', 'Ngưỡng vừa được đẩy lên!', 'Đó mới là tốc độ!', 'Chân vừa học được cách chạy nhanh!'],
+    long: ['Chạy dài xong!', 'Nền sức bền dày thêm một lớp!', 'Đường dài không làm khó được bạn!'],
+    week: ['Trọn vẹn một tuần!', 'Không sót buổi nào cả tuần!', 'Tuần hoàn hảo!'],
+    milestone: ['Cột mốc mới!', 'Giáo án đã đi được một đoạn dài!', 'Nhìn lại mà xem, xa phết rồi!'],
+    race: ['VỀ ĐÍCH!', 'Bắc Ninh Legacy 10K — hoàn thành!', 'Bạn đã làm được!']
+  };
 
-  /* ---- Ảnh Strava ---- */
+  function toast(title, sub) {
+    var wrap = el('toasts');
+    if (!wrap) return;
+    while (wrap.children.length > 1) wrap.removeChild(wrap.firstChild);
+    var box = document.createElement('div');
+    box.className = 'toast';
+    box.innerHTML = '<strong>' + esc(title) + '</strong>' + (sub ? '<span>' + esc(sub) + '</span>' : '');
+    wrap.appendChild(box);
+    function close() {
+      box.classList.add('out');
+      setTimeout(function () { if (box.parentNode) box.parentNode.removeChild(box); }, 420);
+    }
+    var timer = setTimeout(close, 3600);
+    box.addEventListener('click', function () { clearTimeout(timer); close(); });
+  }
+
+  function crossed(prev, now) {
+    var marks = [25, 50, 75, 100];
+    for (var i = marks.length - 1; i >= 0; i--) if (prev < marks[i] && now >= marks[i]) return marks[i];
+    return 0;
+  }
+
+  function celebrate(sid, anchor, prevPct) {
+    var x = findSession(sid);
+    if (!x) return;
+    var st = stats();
+    var ms = crossed(prevPct, st.pct);
+    var full = weekComplete(x.wi);
+    var tier = x.s.type === 'race' ? 'race' : full ? 'week' : x.s.type === 'long' ? 'long' : x.s.type === 'quality' ? 'quality' : 'easy';
+    if (ms === 100) tier = 'race';
+    else if (ms) tier = 'milestone';
+
+    var sub;
+    if (ms) sub = 'Đã xong ' + ms + '% giáo án · ' + st.n + '/' + st.total + ' buổi · ' + fmtKm(st.km) + ' km';
+    else if (tier === 'week') sub = 'Tuần ' + (x.wi + 1) + ' trọn vẹn · ' + fmtKm(weekKm(x.wi)) + ' km';
+    else sub = x.s.title + (x.s.km ? ' · ' + fmtKm(x.s.km) + ' km' : '');
+
+    FX.party(tier, anchor);
+    toast(pick(CHEER[tier]), sub);
+  }
+
+  /* ================= tab ================= */
+  var TAB_IDS = ['overview', 'schedule', 'strava', 'ref'];
+  function setTab(name, scroll) {
+    if (TAB_IDS.indexOf(name) < 0) name = 'overview';
+    TAB_IDS.forEach(function (n) {
+      var btn = el('tab-' + n), pane = el('panel-' + n);
+      if (!btn || !pane) return;
+      var on = n === name;
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      btn.tabIndex = on ? 0 : -1;
+      pane.hidden = !on;
+      if (on) { pane.classList.remove('in'); void pane.offsetWidth; pane.classList.add('in'); }
+    });
+    store.set('bn27-tab', name);
+    if (scroll) {
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
+    }
+  }
+  function jumpNow() {
+    var target = document.querySelector('#weeks .week.current') || document.querySelector('#weeks .week');
+    if (!target) return;
+    try { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { target.scrollIntoView(); }
+  }
+
+  /* ================= ảnh Strava ================= */
   var logs = [], persist = true, sampleFn = null, idbp = null;
   var KIND = { run: 'Chạy', walk: 'Đi bộ', other: 'Khác' };
   function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -267,12 +476,12 @@
     });
     return idbp;
   }
-  function idbRun(mode, fn) {
+  function idbRun(m, fn) {
     return openDB().then(function (db) {
       if (!db) return null;
       return new Promise(function (res) {
         try {
-          var tx = db.transaction('logs', mode), req = fn(tx.objectStore('logs'));
+          var tx = db.transaction('logs', m), req = fn(tx.objectStore('logs'));
           tx.oncomplete = function () { res(req && req.result !== undefined ? req.result : true); };
           tx.onerror = tx.onabort = function () { res(null); };
         } catch (e) { res(null); }
@@ -283,7 +492,7 @@
     var rec = { id: l.id, blob: l.blob, date: l.date, km: l.km, pace: l.pace, time: l.time, title: l.title, kind: l.kind, link: l.link, added: l.added };
     return idbRun('readwrite', function (st) { return st.put(rec); }).then(function (r) { if (r === null) { persist = false; renderStrava(); } });
   }
-  function removeLog(id) { return idbRun('readwrite', function (st) { return st.delete(id); }); }
+  function removeLog(lid) { return idbRun('readwrite', function (st) { return st.delete(lid); }); }
   function hydrate(r) {
     return { id: r.id, blob: r.blob, url: URL.createObjectURL(r.blob), date: r.date || '', km: r.km || '', pace: r.pace || '', time: r.time || '',
              title: r.title || '', kind: r.kind || 'run', link: r.link || '', added: r.added || 0, msg: '', busy: false, zoom: false, armed: false };
@@ -294,7 +503,7 @@
       if (Array.isArray(rows)) logs = rows.filter(function (r) { return r && r.blob; }).map(hydrate);
     });
   }
-  function findLog(id) { for (var i = 0; i < logs.length; i++) if (logs[i].id === id) return logs[i]; return null; }
+  function findLog(lid) { for (var i = 0; i < logs.length; i++) if (logs[i].id === lid) return logs[i]; return null; }
 
   function actualHtml(key) {
     var l = null;
@@ -381,12 +590,13 @@
   }
 
   function renderStrava() {
-    var box = document.getElementById('sv-list');
+    var box = el('sv-list');
+    if (!box) return;
     var runs = logs.filter(function (l) { return l.kind !== 'walk' && Number(l.km) > 0; });
     var km = runs.reduce(function (a, l) { return a + Number(l.km); }, 0);
-    document.getElementById('sv-sum').textContent = logs.length ? logs.length + ' ảnh · ' + fmtKm(km) + ' km chạy đã ghi (không tính đi bộ)' : 'Chưa có ảnh nào.';
-    document.getElementById('sv-read-all').hidden = !(sampleFn && logs.some(function (l) { return !l.km && !l.busy; }));
-    document.getElementById('sv-note').textContent = persist ? '' : 'Trình duyệt này không cho lưu ảnh nên ảnh chỉ còn đến khi bạn đóng trang.';
+    if (el('sv-sum')) el('sv-sum').textContent = logs.length ? logs.length + ' ảnh · ' + fmtKm(km) + ' km chạy đã ghi (không tính đi bộ)' : 'Chưa có ảnh nào.';
+    if (el('sv-read-all')) el('sv-read-all').hidden = !(sampleFn && logs.some(function (l) { return !l.km && !l.busy; }));
+    if (el('sv-note')) el('sv-note').textContent = persist ? '' : 'Trình duyệt này không cho lưu ảnh nên ảnh chỉ còn đến khi bạn đóng trang.';
     var sess = all().filter(function (x) { return x.s.type !== 'rest'; });
     var list = logs.slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || '') || b.added - a.added; });
     box.innerHTML = list.map(function (l) {
@@ -412,62 +622,188 @@
     }).join('');
   }
 
-  var svList = document.getElementById('sv-list');
-  svList.addEventListener('change', function (e) {
-    var t = e.target, f = t && t.getAttribute('data-f'), art = t && t.closest('.lg');
-    if (!f || !art) return;
-    var l = findLog(art.getAttribute('data-id'));
-    if (!l) return;
-    var v = String(t.value).trim();
-    if (f === 'link') { l.link = v; if (v) setDone(v, true); }
-    else if (f === 'km') l.km = v.replace(',', '.');
-    else l[f] = v;
-    if (f === 'date' || f === 'kind') autoLink(l);
-    saveLog(l);
-    renderAll(t.id);
-  });
-  svList.addEventListener('click', function (e) {
-    var b = e.target && e.target.closest('[data-act]'), art = e.target && e.target.closest('.lg');
-    if (!b || !art) return;
-    var l = findLog(art.getAttribute('data-id'));
-    if (!l) return;
-    var act = b.getAttribute('data-act');
-    if (act === 'zoom') { l.zoom = !l.zoom; renderStrava(); }
-    else if (act === 'read') readLog(l);
-    else if (act === 'del') {
-      if (!l.armed) {
-        l.armed = true; renderStrava();
-        setTimeout(function () { if (l.armed) { l.armed = false; renderStrava(); } }, 4000);
-      } else {
-        try { URL.revokeObjectURL(l.url); } catch (x) {}
-        logs = logs.filter(function (z) { return z !== l; });
-        removeLog(l.id); renderAll();
-      }
-    }
-  });
-  document.getElementById('sv-read-all').addEventListener('click', function () {
-    logs.filter(function (l) { return !l.km && !l.busy; }).reduce(function (p, l) { return p.then(function () { return readLog(l); }); }, Promise.resolve());
-  });
-  var svFile = document.getElementById('sv-file'), svDrop = document.getElementById('sv-drop');
-  svFile.addEventListener('change', function () { addFiles(svFile.files); svFile.value = ''; });
-  ['dragenter', 'dragover'].forEach(function (n) { svDrop.addEventListener(n, function (e) { e.preventDefault(); svDrop.classList.add('over'); }); });
-  ['dragleave', 'drop'].forEach(function (n) { svDrop.addEventListener(n, function (e) { e.preventDefault(); svDrop.classList.remove('over'); }); });
-  svDrop.addEventListener('drop', function (e) { addFiles(e.dataTransfer && e.dataTransfer.files); });
-
-  renderAll();
-  loadLogs().then(function () { renderAll(); });
-  try {
-    if (window.claude && window.claude.use) {
-      window.claude.use('sample').then(function (s) {
-        if (!s) return;
-        return s.limits().then(function (lim) { if (lim && lim.images) { sampleFn = s; renderStrava(); } });
-      }).catch(function () {});
-    }
-  } catch (e) {}
-
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw.js').catch(function () {});
-    });
+  /* ================= gắn sự kiện ================= */
+  function on(target, ev, fn) {
+    var node = typeof target === 'string' ? el(target) : target;
+    if (node) node.addEventListener(ev, fn);
   }
+
+  function bindEvents() {
+    on('weeks', 'change', function (e) {
+      var t = e.target;
+      var sel = t && t.getAttribute('data-sel');
+      if (sel) {
+        var p = sel.split('|'), wi = +p[0];
+        (sched.wk[wi] = sched.wk[wi] || {})[p[1]] = +t.value;
+        saveSched(); renderAll(t.id);
+        return;
+      }
+      var k = t && t.getAttribute('data-id');
+      if (!k) return;
+      var prev = stats().pct;
+      setDone(k, t.checked);
+      var row = t.closest('.row');
+      if (row) row.classList.toggle('done', t.checked);
+      var x = findSession(k);
+      if (x) syncWeekBadge(x.wi);
+      renderChart(); renderProgress(); renderNext();
+      if (t.checked) {
+        if (row) {
+          row.classList.add('just');
+          setTimeout(function () { row.classList.remove('just'); }, 900);
+        }
+        celebrate(k, t, prev);
+      }
+    });
+
+    on('weeks', 'click', function (e) {
+      var r = e.target && e.target.getAttribute('data-reset');
+      if (r == null) return;
+      delete sched.wk[r]; saveSched(); renderAll();
+    });
+
+    on('weeks', 'input', function (e) {
+      var t = e.target, k = t && t.getAttribute('data-note');
+      if (!k) return;
+      setNote(k, t.value);
+    });
+
+    on('sched-fields', 'change', function (e) {
+      var i = e.target && e.target.getAttribute('data-def');
+      if (i == null) return;
+      sched.def[+i] = +e.target.value; saveSched(); renderAll(e.target.id);
+    });
+
+    on('sched-reset', 'click', function () {
+      sched = { def: defaults(), wk: {} }; saveSched(); renderAll();
+    });
+
+    on('next', 'click', function (e) {
+      var k = e.target && e.target.getAttribute('data-done');
+      if (!k) return;
+      var prev = stats().pct;
+      setDone(k, true);
+      celebrate(k, e.target, prev);
+      renderAll();
+    });
+
+    on('m4', 'click', function () { mode = 4; store.set('bn27-mode', '4'); renderAll(); });
+    on('m3', 'click', function () { mode = 3; store.set('bn27-mode', '3'); renderAll(); });
+    on('jump-now', 'click', jumpNow);
+
+    on('tabs', 'click', function (e) {
+      var b = e.target && e.target.closest ? e.target.closest('[data-tab]') : null;
+      if (b) setTab(b.getAttribute('data-tab'), true);
+    });
+    on('tabs', 'keydown', function (e) {
+      var k = e.key;
+      if (k !== 'ArrowRight' && k !== 'ArrowLeft' && k !== 'Home' && k !== 'End') return;
+      var cur = TAB_IDS.indexOf((document.activeElement && document.activeElement.getAttribute('data-tab')) || '');
+      if (cur < 0) return;
+      e.preventDefault();
+      var nx = k === 'Home' ? 0 : k === 'End' ? TAB_IDS.length - 1
+        : (cur + (k === 'ArrowRight' ? 1 : -1) + TAB_IDS.length) % TAB_IDS.length;
+      setTab(TAB_IDS[nx], false);
+      var btn = el('tab-' + TAB_IDS[nx]);
+      if (btn) btn.focus();
+    });
+
+    on('sv-list', 'change', function (e) {
+      var t = e.target, f = t && t.getAttribute('data-f'), art = t && t.closest('.lg');
+      if (!f || !art) return;
+      var l = findLog(art.getAttribute('data-id'));
+      if (!l) return;
+      var v = String(t.value).trim();
+      if (f === 'link') { l.link = v; if (v) setDone(v, true); }
+      else if (f === 'km') l.km = v.replace(',', '.');
+      else l[f] = v;
+      if (f === 'date' || f === 'kind') autoLink(l);
+      saveLog(l);
+      renderAll(t.id);
+    });
+
+    on('sv-list', 'click', function (e) {
+      var b = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
+      var art = e.target && e.target.closest ? e.target.closest('.lg') : null;
+      if (!b || !art) return;
+      var l = findLog(art.getAttribute('data-id'));
+      if (!l) return;
+      var act = b.getAttribute('data-act');
+      if (act === 'zoom') { l.zoom = !l.zoom; renderStrava(); }
+      else if (act === 'read') readLog(l);
+      else if (act === 'del') {
+        if (!l.armed) {
+          l.armed = true; renderStrava();
+          setTimeout(function () { if (l.armed) { l.armed = false; renderStrava(); } }, 4000);
+        } else {
+          try { URL.revokeObjectURL(l.url); } catch (x) {}
+          logs = logs.filter(function (z) { return z !== l; });
+          removeLog(l.id); renderAll();
+        }
+      }
+    });
+
+    on('sv-read-all', 'click', function () {
+      logs.filter(function (l) { return !l.km && !l.busy; })
+        .reduce(function (p, l) { return p.then(function () { return readLog(l); }); }, Promise.resolve());
+    });
+
+    var svFile = el('sv-file'), svDrop = el('sv-drop');
+    if (svFile) svFile.addEventListener('change', function () { addFiles(svFile.files); svFile.value = ''; });
+    if (svDrop) {
+      ['dragenter', 'dragover'].forEach(function (n) { svDrop.addEventListener(n, function (ev) { ev.preventDefault(); svDrop.classList.add('over'); }); });
+      ['dragleave', 'drop'].forEach(function (n) { svDrop.addEventListener(n, function (ev) { ev.preventDefault(); svDrop.classList.remove('over'); }); });
+      svDrop.addEventListener('drop', function (ev) { addFiles(ev.dataTransfer && ev.dataTransfer.files); });
+    }
+  }
+
+  /* ================= nạp module HTML rồi khởi động ================= */
+  function loadSections() {
+    var panes = Array.prototype.slice.call(document.querySelectorAll('[data-src]'));
+    return Promise.all(panes.map(function (pane) {
+      return fetch(pane.getAttribute('data-src'))
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+        .then(function (html) { pane.innerHTML = html; })
+        .catch(function () {
+          pane.innerHTML = '<section class="panel"><h2>Không tải được phần này</h2>' +
+            '<p class="hint">Hãy mở trang qua một địa chỉ http (GitHub Pages hoặc server local) thay vì mở thẳng file trên máy.</p></section>';
+        });
+    }));
+  }
+
+  function countUp(node, to) {
+    if (!node) return;
+    try { if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { node.textContent = to; return; } } catch (e) {}
+    var from = 0, t0 = Date.now(), dur = 900;
+    (function step() {
+      var k = Math.min(1, (Date.now() - t0) / dur);
+      node.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) requestAnimationFrame(step);
+    })();
+  }
+
+  function boot() {
+    bindEvents();
+    setTab(store.get('bn27-tab') || 'overview', false);
+    renderAll();
+    countUp(el('days'), Math.max(0, Math.ceil((RACE - today0()) / 864e5)));
+    loadLogs().then(function () { renderAll(); });
+
+    try {
+      if (window.claude && window.claude.use) {
+        window.claude.use('sample').then(function (s) {
+          if (!s) return;
+          return s.limits().then(function (lim) { if (lim && lim.images) { sampleFn = s; renderStrava(); } });
+        }).catch(function () {});
+      }
+    } catch (e) {}
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      });
+    }
+  }
+
+  loadSections().then(boot);
 })();

@@ -1,12 +1,16 @@
 // Service worker: app-shell cache so the training plan still opens offline.
 // Bump CACHE when index.html/style.css/script.js change meaningfully.
-var CACHE = 'bn27-cache-v1';
+var CACHE = 'bn27-cache-v2';
 var CORE = [
   './',
   './index.html',
   './style.css',
   './script.js',
   './manifest.json',
+  './sections/overview.html',
+  './sections/schedule.html',
+  './sections/strava.html',
+  './sections/reference.html',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
