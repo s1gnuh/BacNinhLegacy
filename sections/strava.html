@@ -1,8 +1,19 @@
 <section class="panel" id="strava">
-  <h2>Ảnh Strava</h2>
-  <p class="hint">Tải ảnh chụp màn hình hoạt động Strava sau mỗi buổi chạy. Ảnh có ngày trùng một buổi trong giáo án sẽ được gắn vào buổi đó và buổi đó tự được đánh dấu đã chạy. Ảnh chỉ lưu trong trình duyệt này.</p>
-  <label class="drop" id="sv-drop" for="sv-file"><strong>Chọn ảnh hoặc kéo thả vào đây</strong><span>PNG hoặc JPG, chọn được nhiều ảnh cùng lúc</span><input class="sr" type="file" id="sv-file" accept="image/*" multiple></label>
+  <h2>Ảnh buổi chạy</h2>
+  <p class="hint">Hai loại ảnh: <strong>ảnh Strava</strong> để lấy số liệu quãng đường, pace, thời gian; và <strong>ảnh chạy</strong> là ảnh bạn chụp trên đường, chỉ cần chú thích. Ảnh có ngày trùng một buổi trong giáo án sẽ tự gắn vào buổi đó và đánh dấu đã chạy. Mọi thứ lưu trong trình duyệt này, không gửi đi đâu.</p>
+
+  <div class="sv-upload">
+    <label class="fld sv-cat"><span>Ảnh sắp thêm là</span>
+      <select id="sv-cat">
+        <option value="strava">Ảnh Strava (có số liệu)</option>
+        <option value="photo">Ảnh chạy (chỉ ảnh)</option>
+      </select>
+    </label>
+    <label class="drop" id="sv-drop" for="sv-file"><strong>Chọn ảnh hoặc kéo thả vào đây</strong><span>PNG hoặc JPG, chọn được nhiều ảnh cùng lúc</span><input class="sr" type="file" id="sv-file" accept="image/*" multiple></label>
+  </div>
+
   <div class="panel-actions"><span id="sv-sum" class="hint"></span><button type="button" class="lnk" id="sv-read-all" hidden>Đọc số liệu của các ảnh còn trống bằng Claude</button></div>
+  <p class="hint" id="sv-storage"></p>
   <p class="hint" id="sv-note"></p>
   <div class="lg-list" id="sv-list"></div>
 </section>

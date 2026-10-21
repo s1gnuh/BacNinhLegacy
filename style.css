@@ -235,6 +235,11 @@ ul.rules { margin: 0; padding-left: 18px; display: flex; flex-direction: column;
 .btn-sm { font: inherit; font-size: 13px; font-weight: 600; padding: 7px 12px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; }
 .btn-sm[disabled] { opacity: .55; cursor: default; }
 .btn-sm[data-armed="1"] { background: var(--quality-bg); color: var(--quality); border-color: var(--quality); }
+.btn-sm.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.sv-upload { display: flex; flex-direction: column; gap: 10px; }
+.sv-cat { max-width: 260px; }
+.lg.photo .lg-thumb img { object-fit: cover; }
+.lg.photo { border-color: var(--long); }
 .row .what .actual { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; font-size: 13px; color: var(--fg); }
 @media (max-width: 520px) { .lg { grid-template-columns: 88px minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) {

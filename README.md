@@ -12,7 +12,7 @@ Trang web tĩnh một trang, theo dõi giáo án tập luyện 10K cho **Bắc N
 - **Pháo hoa ăn mừng** khi đánh dấu xong một buổi, to dần theo mức độ: buổi nhẹ → buổi chất lượng/dài → trọn một tuần → mốc 25/50/75% giáo án → ngày thi đấu. Kèm lời chúc ngẫu nhiên. Tự tắt khi hệ điều hành bật chế độ giảm chuyển động.
 - **Biểu đồ số km theo tuần** — cột nhạt là khối lượng dự kiến, phần tô đậm là số km các buổi đã đánh dấu chạy xong, cập nhật ngay khi tick.
 - **Ghi chú cho từng buổi tập** — ô ghi chú gấp mở (cảm nhận, đau mỏi, thời tiết...), lưu riêng theo từng buổi.
-- **Ảnh Strava** — kéo-thả ảnh chụp màn hình sau buổi chạy, tự khớp theo ngày với buổi tập trong giáo án và tự đánh dấu đã chạy; có thể nhập tay quãng đường/pace/thời gian.
+- **Ảnh buổi chạy** — hai loại: ảnh Strava (kéo-thả ảnh chụp màn hình, nhập hoặc để Claude đọc quãng đường/pace/thời gian, tự khớp theo ngày và đánh dấu đã chạy) và ảnh chạy (ảnh chụp trên đường, chỉ cần chú thích, gắn vào buổi nhưng không tự tick). Mỗi ảnh có nút Lưu riêng, ảnh nằm trong IndexedDB và được xin quyền lưu bền để trình duyệt không tự dọn.
 - **Chạy thử 5 km ở tuần 6** để tự tính lại pace mục tiêu cho ngày thi.
 - **200 câu truyền động lực tiếng Anh** — hiện ngẫu nhiên một câu ở tab Tổng quan, đổi câu khi bấm nút hoặc mỗi lần đánh dấu xong một buổi chạy.
 - **Cài đặt như app (PWA)** — có `manifest.json` + service worker, dùng được offline sau lần mở đầu tiên và thêm được vào màn hình chính trên điện thoại.
