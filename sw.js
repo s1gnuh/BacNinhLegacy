@@ -1,6 +1,6 @@
 // Service worker: app-shell cache so the training plan still opens offline.
 // Bump CACHE when index.html/style.css/script.js change meaningfully.
-var CACHE = 'bn27-cache-v2';
+var CACHE = 'bn27-cache-v3';
 var CORE = [
   './',
   './index.html',
@@ -31,18 +31,30 @@ self.addEventListener('activate', function (e) {
   );
 });
 
+// Mã nguồn (html/css/js) lấy mạng trước, để bản vừa deploy không bị kẹt sau
+// bản cache cũ; chỉ dùng cache khi offline. Ảnh và icon thì cache trước cho nhanh.
+function isCode(req) {
+  if (req.mode === 'navigate') return true;
+  var p = new URL(req.url).pathname;
+  return /\.(html|css|js|json)$/.test(p);
+}
+
 self.addEventListener('fetch', function (e) {
   var req = e.request;
-  if (req.method !== 'GET') return;
+  if (req.method !== 'GET' || req.url.indexOf(self.location.origin) !== 0) return;
 
-  if (req.mode === 'navigate') {
+  if (isCode(req)) {
     e.respondWith(
       fetch(req).then(function (res) {
-        var copy = res.clone();
-        caches.open(CACHE).then(function (c) { c.put(req, copy); });
+        if (res && res.ok) {
+          var copy = res.clone();
+          caches.open(CACHE).then(function (c) { c.put(req, copy); });
+        }
         return res;
       }).catch(function () {
-        return caches.match(req).then(function (r) { return r || caches.match('./index.html'); });
+        return caches.match(req).then(function (r) {
+          return r || (req.mode === 'navigate' ? caches.match('./index.html') : undefined);
+        });
       })
     );
     return;
@@ -50,14 +62,14 @@ self.addEventListener('fetch', function (e) {
 
   e.respondWith(
     caches.match(req).then(function (cached) {
-      var fetchPromise = fetch(req).then(function (res) {
-        if (res && res.ok && req.url.indexOf(self.location.origin) === 0) {
+      if (cached) return cached;
+      return fetch(req).then(function (res) {
+        if (res && res.ok) {
           var copy = res.clone();
           caches.open(CACHE).then(function (c) { c.put(req, copy); });
         }
         return res;
-      }).catch(function () { return cached; });
-      return cached || fetchPromise;
+      });
     })
   );
 });
