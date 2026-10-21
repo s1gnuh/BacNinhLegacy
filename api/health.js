@@ -13,6 +13,12 @@ module.exports = async (req, res) => {
     subscriptions: 0
   };
 
+  // Chỉ liệt kê TÊN biến, không bao giờ kèm giá trị. Tích hợp Upstash trên
+  // Vercel đặt tên khác nhau tuỳ cách nối, nhìn tên là biết thiếu đúng cái gì.
+  out.envKeys = Object.keys(process.env)
+    .filter((k) => /^(KV_|UPSTASH_|REDIS_|VAPID_|CRON_)/.test(k))
+    .sort();
+
   const redis = getRedis();
   if (redis) {
     try {
@@ -22,6 +28,10 @@ module.exports = async (req, res) => {
       out.storage = 'unreachable';
       out.storageError = (e && e.message ? String(e.message) : 'unknown').slice(0, 200);
     }
+  } else if (out.envKeys.some((k) => /^(REDIS_URL|KV_URL)$/.test(k))) {
+    // Có kho nhưng là kiểu kết nối redis://, client REST không dùng được.
+    out.storage = 'wrong_env_shape';
+    out.hint = 'Kho đã nối nhưng chỉ có biến kiểu redis://. Vào Upstash → tab REST API, copy UPSTASH_REDIS_REST_URL và UPSTASH_REDIS_REST_TOKEN rồi thêm vào Vercel.';
   }
 
   out.ready = out.vapidPublic && out.vapidPrivate && out.storage === 'ok';

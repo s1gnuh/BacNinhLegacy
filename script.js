@@ -748,10 +748,16 @@
             if (!d.vapidPublic) bad.push('thiếu VAPID_PUBLIC_KEY');
             if (!d.vapidPrivate) bad.push('thiếu VAPID_PRIVATE_KEY');
             if (d.storage === 'missing_env') bad.push('chưa nối kho Upstash Redis');
+            if (d.storage === 'wrong_env_shape') bad.push('kho nối sai kiểu biến');
             if (d.storage === 'unreachable') bad.push('không kết nối được Upstash (' + (d.storageError || '') + ')');
+            var keys = (d.envKeys || []).join(', ') || 'không có biến nào';
+            // VAPID_SUBJECT không bắt buộc nhưng thiếu thì Apple hay từ chối,
+            // nên nhắc riêng chứ không tính là hỏng.
+            var warn = d.vapidSubject ? '' : ' Lưu ý: chưa đặt VAPID_SUBJECT, iPhone có thể từ chối nhận.';
             st.textContent = bad.length
-              ? 'Máy chủ còn thiếu: ' + bad.join('; ') + '. Sửa trên Vercel rồi deploy lại.'
-              : 'Máy chủ sẵn sàng, đang có ' + d.subscriptions + ' máy đăng ký nhận thông báo.';
+              ? 'Máy chủ còn thiếu: ' + bad.join('; ') + '. ' + (d.hint ? d.hint + ' ' : '')
+                + 'Biến đang có trên server: ' + keys + '. Sửa trên Vercel rồi deploy lại.'
+              : 'Máy chủ sẵn sàng, đang có ' + d.subscriptions + ' máy đăng ký nhận thông báo.' + warn;
           })
           .catch(function () { if (st) st.textContent = 'Không gọi được /api/health.'; });
       },
@@ -763,15 +769,21 @@
       // Có push thật thì thử luôn đường đi qua máy chủ, vì đó mới là thứ
       // hoạt động khi app đã đóng. Không có thì báo cục bộ.
       test: function () {
+        var st = el('nt-status');
         if (!pushSub) {
-          show('Thử thông báo', 'Nếu bạn thấy dòng này thì nhắc nhở đang chạy được.');
+          show('Thử thông báo cục bộ', 'Thông báo này từ chính máy bạn, chưa phải từ máy chủ.');
+          toast('Chưa có push từ máy chủ', 'Bấm "Kiểm tra máy chủ" để xem còn thiếu gì.');
           return;
         }
-        var st = el('nt-status');
         if (st) st.textContent = 'Đang gửi thử qua máy chủ...';
         tryPush(true).then(function (msg) {
-          if (msg && st) st.textContent = msg;
-          else render();
+          if (msg) {
+            if (st) st.textContent = msg;
+            toast('Gửi thử thất bại', msg);
+          } else {
+            toast('Đã gửi từ máy chủ', 'Thông báo sẽ hiện ra trong vài giây.');
+            render();
+          }
         });
       }
     };
