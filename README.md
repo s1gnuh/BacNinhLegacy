@@ -6,6 +6,7 @@ Trang web tĩnh một trang, theo dõi giáo án tập luyện 10K cho **Bắc N
 
 ## Tính năng
 
+- **Lịch tháng** — bảng lịch trong tab Lịch tập, mỗi ngày có chấm màu theo loại buổi, bấm vào ngày nào thì hiện buổi tập, số liệu Strava, ghi chú và ảnh của ngày đó, đánh dấu đã chạy được ngay tại đó.
 - **Chia tab** — Tổng quan / Lịch tập / Strava / Tham khảo, không phải cuộn một trang dài. Tab đang mở được nhớ lại cho lần sau, chuyển tab được bằng phím mũi tên.
 - **Lịch 12 tuần** chia theo giai đoạn (Nền tảng → Xây sức bền → Đặc thù cự ly → Giảm tải → Tuần thi đấu), mỗi tuần gồm buổi nhẹ / chất lượng / dài, chuyển được giữa chế độ 4 buổi hoặc 3 buổi mỗi tuần.
 - **Tick "đã chạy"** cho từng buổi, đổi ngày chạy mặc định hoặc riêng cho từng tuần nếu bận.

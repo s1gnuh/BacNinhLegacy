@@ -337,6 +337,117 @@
     if (!chartSeen) { chartSeen = true; box.classList.add('in'); }
   }
 
+  /* ================= lịch tháng ================= */
+  var calMonth = null, calSel = '';
+  var MONTH = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+               'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+
+  function monthStart(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+  function sameMonth(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth(); }
+  function planBounds() {
+    var ds = all().filter(function (x) { return x.s.type !== 'rest'; })
+      .map(function (x) { return x.date; }).sort(function (a, b) { return a - b; });
+    return ds.length ? { first: ds[0], last: ds[ds.length - 1] } : null;
+  }
+  function byDate() {
+    var map = {};
+    all().forEach(function (x) { if (x.s.type !== 'rest') map[iso(x.date)] = x; });
+    return map;
+  }
+  function photosOn(key, sid) {
+    return logs.filter(function (l) { return l.date === key || (sid && l.link === sid); });
+  }
+
+  function renderCalendar() {
+    var box = el('cal');
+    if (!box) return;
+    var b = planBounds(), t0 = today0();
+    if (!calMonth) {
+      calMonth = b && t0 >= monthStart(b.first) && t0 <= b.last ? monthStart(t0) : monthStart(b ? b.first : t0);
+    }
+    if (el('cal-title')) el('cal-title').textContent = MONTH[calMonth.getMonth()] + '/' + calMonth.getFullYear();
+    if (b) {
+      var prev = el('cal-prev'), next = el('cal-next');
+      if (prev) prev.disabled = calMonth <= monthStart(b.first);
+      if (next) next.disabled = calMonth >= monthStart(b.last);
+    }
+
+    var map = byDate();
+    // Lưới bắt đầu từ thứ 2 của tuần chứa ngày 1.
+    var offset = (calMonth.getDay() + 6) % 7;
+    var cells = '';
+    for (var i = 0; i < 42; i++) {
+      var d = new Date(calMonth.getFullYear(), calMonth.getMonth(), 1 - offset + i);
+      var key = iso(d), x = map[key];
+      var cls = ['cday'];
+      if (!sameMonth(d, calMonth)) cls.push('out');
+      if (key === iso(t0)) cls.push('today');
+      if (key === calSel) cls.push('sel');
+      if (x && done[x.id]) cls.push('done');
+      var pics = photosOn(key, x && x.id).length;
+      cells += '<button type="button" class="' + cls.join(' ') + '" data-day="' + key + '"' +
+        ' aria-label="' + fmt(d) + (x ? ', ' + esc(x.s.title) : ', không có buổi chạy') + '">' +
+        '<span class="cd-num num">' + d.getDate() + '</span>' +
+        (x ? '<i class="cd-dot t-' + x.s.type + '"></i>' : '') +
+        (pics ? '<i class="cd-pic"></i>' : '') +
+        '</button>';
+    }
+    box.innerHTML = cells;
+  }
+
+  function renderDay() {
+    var box = el('cal-day');
+    if (!box) return;
+    if (!calSel) {
+      box.innerHTML = '<p class="hint">Bấm vào một ngày để xem buổi tập, số liệu và ảnh của ngày đó.</p>';
+      return;
+    }
+    var parts = calSel.split('-');
+    var d = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+    var x = byDate()[calSel];
+    var b = planBounds();
+    var head = '<div class="cdh"><strong>' + WD[(d.getDay() + 6) % 7] + ', ' + fmt(d) + '/' + d.getFullYear() + '</strong></div>';
+
+    if (!x) {
+      var outside = !b || d < b.first || d > b.last;
+      box.innerHTML = head + '<p class="hint">' +
+        (outside ? 'Ngày này nằm ngoài kỳ giáo án.'
+                 : 'Không có buổi chạy. ' + esc(REST_TIPS[(Math.random() * REST_TIPS.length) | 0])) + '</p>' +
+        photoStrip(calSel, null);
+      return;
+    }
+
+    var dn = !!done[x.id];
+    var bits = [];
+    var shot = logs.filter(function (l) { return l.cat !== 'photo' && l.link === x.id; })[0];
+    if (shot) {
+      if (Number(shot.km) > 0) bits.push(fmtKm(Number(shot.km)) + ' km');
+      if (shot.pace) bits.push(shot.pace + '/km');
+      if (shot.time) bits.push(shot.time);
+    }
+
+    box.innerHTML = head +
+      '<div class="cdb"><span class="chip t-' + x.s.type + '">' + LABEL[x.s.type] + '</span>' +
+      '<span class="chip ' + (dn ? 't-easy' : 't-rest') + '">' + (dn ? 'Đã chạy' : 'Chưa chạy') + '</span>' +
+      '<span class="kmv num">' + (x.s.km ? fmtKm(x.s.km) + ' km' : '') + '</span></div>' +
+      '<strong class="cdt">' + esc(x.s.title) + '</strong>' +
+      '<p class="hint">' + esc(x.s.d) + '</p>' +
+      (bits.length ? '<p class="actual"><span class="chip t-easy">Strava</span><span class="num">' + esc(bits.join(' · ')) + '</span></p>' : '') +
+      (notes[x.id] ? '<p class="cdn">' + esc(notes[x.id]) + '</p>' : '') +
+      photoStrip(calSel, x.id) +
+      (x.s.type === 'race' ? '' :
+        '<button type="button" class="btn-sm' + (dn ? '' : ' primary') + '" data-cal-done="' + x.id + '">' +
+        (dn ? 'Bỏ đánh dấu đã chạy' : 'Đánh dấu đã chạy') + '</button>');
+  }
+
+  function photoStrip(key, sid) {
+    var pics = photosOn(key, sid);
+    if (!pics.length) return '';
+    return '<div class="cal-pics">' + pics.map(function (l) {
+      return '<img src="' + l.url + '" alt="' + esc(l.note || 'Ảnh ngày ' + key) + '" loading="lazy">';
+    }).join('') + '</div>';
+  }
+
   function renderProgress() {
     var st = stats(), fill = el('pfill'), bar = el('pbar');
     if (fill) fill.style.width = st.pct + '%';
@@ -369,7 +480,8 @@
     if (el('days')) el('days').textContent = d;
     if (el('m4')) el('m4').setAttribute('aria-pressed', mode === 4);
     if (el('m3')) el('m3').setAttribute('aria-pressed', mode === 3);
-    renderSched(); renderChart(); renderWeeks(); renderProgress(); renderNext(); renderStrava();
+    renderSched(); renderChart(); renderWeeks(); renderCalendar(); renderDay();
+    renderProgress(); renderNext(); renderStrava();
     if (focusId) { var f = el(focusId); if (f) f.focus(); }
   }
 
@@ -1127,6 +1239,31 @@
     on('m4', 'click', function () { mode = 4; store.set('bn27-mode', '4'); renderAll(); });
     on('m3', 'click', function () { mode = 3; store.set('bn27-mode', '3'); renderAll(); });
     on('jump-now', 'click', jumpNow);
+
+    on('cal-prev', 'click', function () {
+      calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1);
+      renderCalendar();
+    });
+    on('cal-next', 'click', function () {
+      calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1);
+      renderCalendar();
+    });
+    on('cal', 'click', function (e) {
+      var b = e.target && e.target.closest ? e.target.closest('[data-day]') : null;
+      if (!b) return;
+      var key = b.getAttribute('data-day');
+      calSel = calSel === key ? '' : key;
+      renderCalendar(); renderDay();
+    });
+    on('cal-day', 'click', function (e) {
+      var b = e.target && e.target.closest ? e.target.closest('[data-cal-done]') : null;
+      if (!b) return;
+      var sid = b.getAttribute('data-cal-done');
+      var prev = stats().pct, wasDone = !!done[sid];
+      setDone(sid, !wasDone);
+      renderAll();
+      if (!wasDone) celebrate(sid, b, prev);
+    });
     on('quote-next', 'click', renderQuote);
     on('nt-toggle', 'click', function () { NT.toggle(); });
     on('nt-time', 'change', function (e) { NT.setTime(e.target.value); });
@@ -1173,6 +1310,8 @@
       var act = b.getAttribute('data-act');
       if (act === 'zoom') { l.zoom = !l.zoom; renderStrava(); }
       else if (act === 'save') {
+        var prevPct = stats().pct;
+        var wasDone = l.link ? !!done[l.link] : false;
         readCard(art, l);
         var now = new Date();
         l.saved = Date.now();
@@ -1180,6 +1319,17 @@
         saveLog(l).then(function () {
           renderAll();
           showStorage();
+          // Lưu ảnh mà buổi tập chuyển thành đã chạy thì ăn mừng như khi tick
+          // trong lịch; còn lại chỉ báo đã lưu kèm số liệu vừa ghi.
+          if (l.link && !wasDone && done[l.link]) {
+            celebrate(l.link, b, prevPct);
+          } else {
+            var sum = [];
+            if (Number(l.km) > 0) sum.push(fmtKm(Number(l.km)) + ' km');
+            if (l.pace) sum.push(l.pace + '/km');
+            if (l.time) sum.push(l.time);
+            toast('Đã lưu vào hệ thống', sum.join(' · ') || (l.cat === 'photo' ? 'Ảnh chạy đã được lưu.' : 'Ảnh đã được lưu.'));
+          }
           setTimeout(renderStrava, 4200);   // trả nút "Đã lưu" về "Lưu"
         });
       }
