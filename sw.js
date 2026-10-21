@@ -1,6 +1,6 @@
 // Service worker: app-shell cache so the training plan still opens offline.
 // Bump CACHE when index.html/style.css/script.js change meaningfully.
-var CACHE = 'bn27-cache-v4';
+var CACHE = 'bn27-cache-v5';
 var STATE = 'bn27-state';
 var CORE = [
   './',
@@ -8,6 +8,7 @@ var CORE = [
   './style.css',
   './script.js',
   './quotes.js',
+  './rest-tips.json',
   './manifest.json',
   './sections/overview.html',
   './sections/schedule.html',
@@ -93,15 +94,30 @@ function maybeRemind() {
     if (!s || !s.on || !Array.isArray(s.days)) return;
     var now = new Date();
     var key = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
-    var hit = null;
-    for (var i = 0; i < s.days.length; i++) {
-      if (s.days[i].date === key && !s.days[i].done) { hit = s.days[i]; break; }
-    }
-    if (!hit) return;
-    var hm = String(s.time || '18:00').split(':');
+
+    // Chạy nền được đánh thức vào giờ bất kỳ nên vẫn phải chặn, tránh báo lúc 3 giờ sáng.
+    var hm = String(s.time || '06:30').split(':');
     if (now.getHours() < Number(hm[0])) return;
-    return self.registration.showNotification('Hôm nay có buổi chạy', {
-      body: hit.title,
+
+    var todays = s.days.filter(function (d) { return d.date === key; });
+    var undone = todays.filter(function (d) { return !d.done; })[0];
+    var title, body;
+
+    if (undone) {
+      title = 'Hôm nay có buổi chạy';
+      body = undone.title;
+    } else if (todays.length) {
+      return;                                   // buổi hôm nay đã xong
+    } else {
+      var dates = s.days.map(function (d) { return d.date; }).sort();
+      if (!dates.length || key < dates[0] || key > dates[dates.length - 1]) return;
+      var tips = (s.tips && s.tips.length) ? s.tips : ['Tập chống đẩy hoặc squat vài hiệp cho chân khỏe.'];
+      title = 'Hôm nay không có buổi chạy';
+      body = tips[Math.floor(Math.random() * tips.length)];
+    }
+
+    return self.registration.showNotification(title, {
+      body: body,
       icon: './icons/icon-192.png',
       badge: './icons/icon-192.png',
       tag: 'bn27-remind',

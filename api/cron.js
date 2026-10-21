@@ -3,6 +3,7 @@
 // của máy đã đăng ký rồi đẩy thông báo nếu hôm nay còn buổi chạy chưa xong.
 const webpush = require('web-push');
 const { getRedis, allSubs, dropSub } = require('../lib/store');
+const REST_TIPS = require('../rest-tips.json');
 
 function localNow(tz) {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -31,19 +32,29 @@ module.exports = async (req, res) => {
   for (const { id, rec } of subs) {
     if (rec.on === false) { skipped++; continue; }
 
+    // Gói Hobby chỉ cho cron chạy một lần mỗi ngày, nên giờ chạy cron chính
+    // là giờ nhắc. Không chặn theo rec.time nữa, vì đặt giờ muộn hơn cron sẽ
+    // làm thông báo không bao giờ được gửi.
     const now = localNow(rec.tz || 'Asia/Ho_Chi_Minh');
-    const wanted = Number(String(rec.time || '18:00').split(':')[0]);
-    if (now.hour < wanted) { skipped++; continue; }
+    const days = rec.days || [];
+    const todays = days.filter((d) => d.date === now.date);
+    const undone = todays.find((d) => !d.done);
 
-    const hit = (rec.days || []).find((d) => d.date === now.date && !d.done);
-    if (!hit) { skipped++; continue; }
+    let title, body;
+    if (undone) {
+      title = 'Hôm nay có buổi chạy';
+      body = undone.title;
+    } else if (todays.length) {
+      skipped++; continue;              // buổi hôm nay đã xong, không làm phiền
+    } else {
+      const dates = days.map((d) => d.date).sort();
+      const inPlan = dates.length && now.date >= dates[0] && now.date <= dates[dates.length - 1];
+      if (!inPlan) { skipped++; continue; }
+      title = 'Hôm nay không có buổi chạy';
+      body = REST_TIPS[Math.floor(Math.random() * REST_TIPS.length)];
+    }
 
-    const payload = JSON.stringify({
-      title: 'Hôm nay có buổi chạy',
-      body: hit.title,
-      url: '/index.html',
-      tag: 'bn27-remind'
-    });
+    const payload = JSON.stringify({ title, body, url: '/index.html', tag: 'bn27-remind' });
 
     try {
       await webpush.sendNotification(rec.sub, payload, { TTL: 10 * 60 * 60 });

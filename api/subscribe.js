@@ -36,8 +36,8 @@ function cleanDays(days) {
 // bao giờ gửi được, nên phải kiểm tra cả khoảng giá trị.
 function cleanTime(t) {
   const m = typeof t === 'string' ? TIME_RE.exec(t) : null;
-  if (!m) return '18:00';
-  return Number(m[1]) > 23 || Number(m[2]) > 59 ? '18:00' : t;
+  if (!m) return '06:30';
+  return Number(m[1]) > 23 || Number(m[2]) > 59 ? '06:30' : t;
 }
 
 function cleanTz(tz) {

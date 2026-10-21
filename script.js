@@ -448,6 +448,14 @@
   }
 
   /* ================= nhắc chạy qua thông báo ================= */
+  var REST_TIPS = ['Tập chống đẩy hoặc squat vài hiệp cho chân khỏe.'];
+  function loadTips() {
+    return fetch('rest-tips.json')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) { if (Array.isArray(d) && d.length) REST_TIPS = d; })
+      .catch(function () {});
+  }
+
   var NT = (function () {
     var KEY = 'bn27-notify';
     // "99:99" vẫn khớp \d{2}:\d{2} nên phải xét cả khoảng giá trị, không thì
@@ -456,7 +464,7 @@
       var m = typeof t === 'string' ? /^(\d{2}):(\d{2})$/.exec(t) : null;
       return !!m && +m[1] <= 23 && +m[2] <= 59;
     }
-    var cfg = { on: false, time: '18:00' };
+    var cfg = { on: false, time: '06:30' };
     try {
       var s = JSON.parse(store.get(KEY) || 'null');
       if (s && typeof s === 'object') {
@@ -482,15 +490,30 @@
     function syncState() {
       pushState();
       if (!('caches' in window)) return Promise.resolve();
-      var body = JSON.stringify({ on: cfg.on, time: cfg.time, days: buildDays() });
+      var body = JSON.stringify({ on: cfg.on, time: cfg.time, days: buildDays(), tips: REST_TIPS });
       return caches.open('bn27-state')
         .then(function (c) { return c.put(stateUrl(), new Response(body, { headers: { 'Content-Type': 'application/json' } })); })
         .catch(function () {});
     }
 
-    function todayUndone() {
+    function planRange() {
+      var ds = all().filter(function (x) { return x.s.type !== 'rest'; })
+        .map(function (x) { return iso(x.date); }).sort();
+      return ds.length ? { first: ds[0], last: ds[ds.length - 1] } : null;
+    }
+
+    // Nội dung nhắc cho hôm nay, hoặc null nếu không cần nhắc: ngày có buổi
+    // chạy thì nhắc buổi đó, ngày trống trong kỳ giáo án thì gợi ý bài tập,
+    // buổi đã đánh dấu xong rồi thì thôi.
+    function todayPlan() {
       var key = iso(today0());
-      return all().filter(function (x) { return x.s.type !== 'rest' && iso(x.date) === key && !done[x.id]; })[0] || null;
+      var todays = all().filter(function (x) { return x.s.type !== 'rest' && iso(x.date) === key; });
+      var undone = todays.filter(function (x) { return !done[x.id]; })[0];
+      if (undone) return { title: 'Hôm nay có buổi chạy', body: undone.s.title };
+      if (todays.length) return null;
+      var r = planRange();
+      if (!r || key < r.first || key > r.last) return null;
+      return { title: 'Hôm nay không có buổi chạy', body: REST_TIPS[(Math.random() * REST_TIPS.length) | 0] };
     }
 
     function show(title, body) {
@@ -513,21 +536,21 @@
     function schedule() {
       clearTimeout(timer);
       if (!cfg.on || !granted()) return;
-      if (!todayUndone()) return;
+      if (!todayPlan()) return;
       var ms = remindAt() - new Date();
       if (ms <= 0) return;
       // chỉ đặt được khi trang còn mở; đóng tab thì phần chạy nền lo tiếp
       timer = setTimeout(function () {
-        var y = todayUndone();
-        if (y) show('Hôm nay có buổi chạy', y.s.title);
+        var p = todayPlan();
+        if (p) show(p.title, p.body);
       }, Math.min(ms, 0x7fffffff));
     }
 
-    // Đã quá giờ nhắc mà buổi hôm nay vẫn chưa xong thì nhắc ngay.
+    // Đã quá giờ nhắc mà hôm nay vẫn còn việc cần nhắc thì nhắc ngay.
     function nudgeIfDue() {
-      var x = todayUndone();
-      if (!x || new Date() < remindAt()) return false;
-      show('Hôm nay có buổi chạy', x.s.title);
+      var p = todayPlan();
+      if (!p || new Date() < remindAt()) return false;
+      show(p.title, p.body);
       return true;
     }
 
@@ -633,8 +656,8 @@
       btn.textContent = cfg.on && granted() ? 'Tắt nhắc nhở' : 'Bật nhắc nhở';
       if (!cfg.on || !granted()) { st.textContent = 'Đang tắt.'; return; }
       st.textContent = hasPush
-        ? 'Đang bật kèm thông báo đẩy từ máy chủ, nhắc cả khi đã đóng app. Chỉ nhắc vào ngày có buổi chạy chưa đánh dấu xong.'
-        : 'Đang bật, nhắc lúc ' + cfg.time + ' vào ngày có buổi chạy chưa đánh dấu xong. Máy chủ đẩy thông báo chưa sẵn sàng nên lời nhắc chỉ đến khi app đang mở hoặc khi điện thoại đánh thức app chạy nền.';
+        ? 'Đang bật kèm thông báo đẩy từ máy chủ, nhắc lúc 6:30 sáng mỗi ngày kể cả khi đã đóng app.'
+        : 'Đang bật, nhắc lúc ' + cfg.time + ' nhưng chỉ khi app đang mở hoặc khi điện thoại đánh thức app chạy nền. Máy chủ đẩy thông báo chưa sẵn sàng.';
     }
 
     function enable() {
@@ -677,7 +700,23 @@
         if (!okTime(v)) return;
         cfg.time = v; save(); syncState(); schedule(); render();
       },
-      test: function () { show('Thử thông báo', 'Nếu bạn thấy dòng này thì nhắc nhở đang chạy được.'); }
+      // Có push thật thì thử luôn đường đi qua máy chủ, vì đó mới là thứ
+      // hoạt động khi app đã đóng. Không có thì báo cục bộ.
+      test: function () {
+        if (!pushSub) {
+          show('Thử thông báo', 'Nếu bạn thấy dòng này thì nhắc nhở đang chạy được.');
+          return;
+        }
+        fetch('api/test-push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscription: pushSub })
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (d) {
+            if (!d || !d.ok) show('Thử thông báo', 'Máy chủ chưa gửi được, kiểm tra lại biến môi trường trên Vercel.');
+          })
+          .catch(function () { show('Thử thông báo', 'Không gọi được máy chủ, đây là thông báo cục bộ.'); });
+      }
     };
   })();
 
@@ -1039,7 +1078,9 @@
     setTab(store.get('bn27-tab') || 'overview', false);
     renderAll();
     renderQuote();
-    NT.init();
+    // Nạp gợi ý bài tập trước, rồi mới dựng phần nhắc, để lời nhắc ngày
+    // trống có đủ danh sách thay vì mỗi câu mặc định.
+    loadTips().then(function () { NT.init(); });
     countUp(el('days'), Math.max(0, Math.ceil((RACE - today0()) / 864e5)));
     loadLogs().then(function () { renderAll(); });
 

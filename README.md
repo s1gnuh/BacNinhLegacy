@@ -34,15 +34,40 @@ Phần nhắc chạy có hai tầng. Tầng cục bộ chạy sẵn không cần
 
 **4. Bật trong app**: mở tab Tổng quan → Bật nhắc nhở. Khi dòng trạng thái ghi "kèm thông báo đẩy từ máy chủ" là đã chạy.
 
-### Giờ nhắc và giới hạn gói Hobby
+### Nhắc cái gì, lúc nào
 
-Cron đang đặt `0 11 * * *`, tức 18:00 giờ Việt Nam. Gói Hobby của Vercel **chỉ cho cron chạy một lần mỗi ngày**, nên:
+Cron đặt `30 23 * * *` theo giờ UTC, tức **6:30 sáng giờ Việt Nam mỗi ngày**. Nội dung tuỳ ngày:
 
-- Ô "Giờ nhắc" trong app nên đặt **sớm hơn hoặc bằng** giờ cron. Cron chỉ gửi khi giờ địa phương đã qua giờ bạn chọn; chọn 20:00 trong khi cron chạy lúc 18:00 thì hôm đó không có thông báo nào.
-- Muốn đổi giờ, sửa `schedule` trong `vercel.json` (giờ UTC, Việt Nam = UTC+7).
-- Gói Pro cho cron chạy dày hơn, lúc đó đổi thành `0 * * * *` là ô giờ nhắc hoạt động đúng từng giờ.
+| Hôm nay | Thông báo |
+| --- | --- |
+| Có buổi chạy, chưa đánh dấu xong | "Hôm nay có buổi chạy" kèm tên buổi |
+| Có buổi chạy, đã đánh dấu xong | Không nhắc |
+| Không có buổi nào, vẫn trong kỳ giáo án | "Hôm nay không có buổi chạy" kèm một gợi ý lấy ngẫu nhiên từ `rest-tips.json` (chống đẩy, squat, plank, tập chân...) |
+| Ngoài khoảng 19/10/2026 – 10/1/2027 | Không nhắc |
 
-Máy chủ lưu múi giờ của từng máy đăng ký nên tính ngày và giờ theo đúng nơi bạn đang ở.
+Gói Hobby của Vercel **chỉ cho cron chạy một lần mỗi ngày**, nên giờ chạy cron chính là giờ nhận thông báo đẩy. Ô "Giờ nhắc khi app mở" chỉ điều khiển lời nhắc cục bộ lúc app đang mở, không ảnh hưởng push. Muốn đổi giờ push thì sửa `schedule` trong `vercel.json` (Việt Nam = UTC+7).
+
+Máy chủ lưu múi giờ của từng máy đăng ký nên tính ngày theo đúng nơi bạn đang ở.
+
+### Bắn thử một thông báo đẩy
+
+Cách dễ nhất: mở app trên điện thoại, tab Tổng quan → **Gửi thử**. Khi push đang bật, nút này đi qua máy chủ thật chứ không phải thông báo cục bộ.
+
+Từ dòng lệnh, gửi tới mọi máy đã đăng ký:
+
+```bash
+curl -X POST https://<tên-project>.vercel.app/api/test-push \
+  -H "Authorization: Bearer <CRON_SECRET>"
+```
+
+Chạy thử nguyên luồng cron (đúng nội dung sẽ nhận lúc 6:30 sáng):
+
+```bash
+curl https://<tên-project>.vercel.app/api/cron \
+  -H "Authorization: Bearer <CRON_SECRET>"
+```
+
+Kết quả trả về dạng `{"ok":true,"total":1,"sent":1,...}`. Nếu `sent` bằng 0, xem `skipped` và `errors` để biết vì sao.
 
 ### Khi chưa có máy chủ
 
@@ -68,11 +93,13 @@ sections/      nội dung từng tab, nạp vào khung khi mở trang
 style.css      toàn bộ giao diện và hiệu ứng
 script.js      logic: lịch, tick, biểu đồ, ghi chú, ảnh Strava, pháo hoa, tab, nhắc chạy
 quotes.js      200 câu truyền động lực
+rest-tips.json gợi ý bài tập cho ngày không có buổi chạy
 sw.js          service worker: cache offline, thông báo nhắc chạy
 api/           serverless function trên Vercel
   vapid.js        trả khoá công khai VAPID cho trình duyệt
   subscribe.js    lưu/xoá subscription kèm trạng thái giáo án
-  cron.js         chạy hằng ngày, đẩy thông báo nếu hôm nay còn buổi chưa xong
+  cron.js         chạy 6:30 sáng, nhắc buổi chạy hoặc gợi ý bài tập
+  test-push.js    bắn thử một thông báo đẩy ngay
 lib/store.js   kho subscription trên Upstash Redis
 vercel.json    header cache và lịch cron
 manifest.json  khai báo PWA
