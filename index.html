@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Giáo án Bắc Ninh 10K</title>
-<meta name="description" content="Giáo án tập luyện 10K cho Bắc Ninh Legacy Marathon 2027">
+<title>Nhật ký chạy</title>
+<meta name="description" content="Bảng tổng hợp cá nhân: km, streak, PR, mục tiêu và các giải đấu đang theo đuổi">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0A726D">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="BN 10K">
+<meta name="apple-mobile-web-app-title" content="Nhật ký chạy">
 <link rel="icon" href="icons/favicon.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Be+Vietnam+Pro:wght@400;500;600&display=swap">
@@ -22,39 +22,94 @@
 
 <div class="wrap">
   <header class="head">
-    <div class="eyebrow">Giáo án 10 km · 19/10/2026 đến 10/1/2027</div>
-    <h1>Bắc Ninh Legacy Marathon 2027</h1>
-    <div class="head-row">
-      <div class="count"><b class="num" id="days">83</b><span>ngày nữa đến ngày thi, Chủ nhật 10/1</span></div>
-      <div class="seg" role="group" aria-label="Số buổi chạy mỗi tuần">
-        <button type="button" id="m4" aria-pressed="true">4 buổi/tuần</button>
-        <button type="button" id="m3" aria-pressed="false">3 buổi/tuần</button>
-      </div>
-    </div>
-    <div>
-      <div class="bar" role="progressbar" aria-label="Tiến độ giáo án" aria-valuemin="0" aria-valuemax="100" id="pbar"><i id="pfill"></i></div>
-      <div class="bar-label"><span id="plabel">0 buổi đã chạy</span><span id="pkm" class="num">0 km</span></div>
-    </div>
+    <div class="eyebrow" id="dash-date"></div>
+    <h1>Nhật ký chạy</h1>
   </header>
 
-  <nav class="tabs" id="tabs" role="tablist" aria-label="Các phần của giáo án">
-    <button type="button" role="tab" id="tab-overview" aria-controls="panel-overview" aria-selected="true" data-tab="overview">Tổng quan</button>
-    <button type="button" role="tab" id="tab-schedule" aria-controls="panel-schedule" aria-selected="false" tabindex="-1" data-tab="schedule">Lịch tập</button>
-    <button type="button" role="tab" id="tab-strava" aria-controls="panel-strava" aria-selected="false" tabindex="-1" data-tab="strava">Strava</button>
-    <button type="button" role="tab" id="tab-ref" aria-controls="panel-ref" aria-selected="false" tabindex="-1" data-tab="ref">Tham khảo</button>
-  </nav>
+  <section class="next" id="next" aria-live="polite"></section>
 
-  <div class="tabpane" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" data-src="sections/overview.html"></div>
-  <div class="tabpane" id="panel-schedule" role="tabpanel" aria-labelledby="tab-schedule" data-src="sections/schedule.html" hidden></div>
-  <div class="tabpane" id="panel-strava" role="tabpanel" aria-labelledby="tab-strava" data-src="sections/strava.html" hidden></div>
-  <div class="tabpane" id="panel-ref" role="tabpanel" aria-labelledby="tab-ref" data-src="sections/reference.html" hidden></div>
+  <section class="panel quote-card">
+    <div class="quote-head"><span class="eyebrow">Lời nhắc</span><button type="button" class="lnk" id="quote-next">Câu khác</button></div>
+    <blockquote id="quote-q"></blockquote>
+    <cite id="quote-a"></cite>
+  </section>
 
-  <p class="foot">Buổi đã chạy, lịch ngày chạy và ghi chú được lưu trong trình duyệt này.</p>
+  <section class="stat-grid" id="stat-grid"></section>
+
+  <section>
+    <h2 class="sec-title">Thành tích tốt nhất</h2>
+    <div class="pr-grid" id="pr-grid"></div>
+  </section>
+
+  <section class="panel">
+    <div class="sec-head"><h2>Mục tiêu</h2><button type="button" class="btn-sm" id="goal-add-toggle">+ Thêm mục tiêu</button></div>
+    <form id="goal-form" class="goal-form" hidden>
+      <label class="fld"><span>Loại mục tiêu</span>
+        <select id="goal-type">
+          <option value="weekly_km">Km mỗi tuần</option>
+          <option value="weekly_sessions">Số buổi mỗi tuần</option>
+          <option value="monthly_km">Km mỗi tháng</option>
+          <option value="pr_target">Mục tiêu thành tích (giây)</option>
+        </select>
+      </label>
+      <label class="fld"><span id="goal-target-label">Mục tiêu</span><input type="number" id="goal-target" min="0" step="any" required></label>
+      <label class="fld" id="goal-dist-wrap" hidden><span>Cự ly (km)</span><input type="number" id="goal-dist" min="0" step="any" value="10"></label>
+      <button type="submit" class="btn-sm primary">Lưu mục tiêu</button>
+    </form>
+    <div id="goal-list"></div>
+  </section>
+
+  <section class="panel" id="analysis">
+    <h2>Phân tích xu hướng</h2>
+    <div class="chart" id="trend-chart" role="img" aria-label="Biểu đồ km 8 tuần gần nhất"></div>
+    <div id="analysis-notes"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2 class="sec-title">Các giải đấu</h2><button type="button" class="btn-sm" id="race-add-toggle">+ Tạo giải mới</button></div>
+    <form id="race-form" class="race-form panel" hidden>
+      <label class="fld wide"><span>Tên giải</span><input type="text" id="race-name" required placeholder="Ví dụ: Giải chạy Hà Nội 2027"></label>
+      <div class="race-form-row">
+        <label class="fld"><span>Ngày thi</span><input type="date" id="race-date" required></label>
+        <label class="fld"><span>Cự ly (km)</span><input type="number" id="race-km" min="0" step="any" value="10"></label>
+      </div>
+      <label class="fld"><span>Dùng khuôn giáo án</span>
+        <select id="race-template">
+          <option value="">Không dùng — chỉ tạo giải, tự ghi nhật ký</option>
+          <option value="periodized-12w">Chu kỳ 12 tuần (kiểu Bắc Ninh 10K)</option>
+        </select>
+      </label>
+      <button type="submit" class="btn-sm primary">Tạo giải</button>
+    </form>
+    <div class="race-list" id="race-list"></div>
+  </section>
+
+  <section class="panel" id="notify">
+    <h2>Nhắc chạy trên điện thoại</h2>
+    <p class="hint">Bật để nhận thông báo vào ngày có buổi chạy mà bạn chưa đánh dấu xong, gộp từ mọi giải đang có giáo án active. Cần thêm trang này vào màn hình chính trước, iPhone bắt buộc phải làm vậy mới cho gửi thông báo.</p>
+    <div class="nt-row">
+      <button type="button" class="btn-sm" id="nt-toggle">Bật nhắc nhở</button>
+      <label class="fld nt-time"><span>Giờ nhắc khi app mở</span><input type="time" id="nt-time" value="06:30"></label>
+      <button type="button" class="btn-sm" id="nt-test" hidden>Gửi thử</button>
+      <button type="button" class="btn-sm" id="nt-health">Kiểm tra máy chủ</button>
+    </div>
+    <p class="hint" id="nt-status"></p>
+  </section>
+
+  <p class="foot">Dữ liệu được lưu trong trình duyệt này. Bật nhắc nhở thì danh sách buổi tập hôm nay (không gồm ảnh) được gửi lên máy chủ để đẩy thông báo.</p>
 </div>
 
 <div class="toast-wrap" id="toasts" aria-live="polite"></div>
 
+<script src="js/core.js"></script>
+<script src="js/templates.js"></script>
+<script src="js/blocks.js"></script>
+<script src="js/races.js"></script>
+<script src="js/runlog.js"></script>
+<script src="js/goals.js"></script>
+<script src="js/migrate.js"></script>
+<script src="js/notify.js"></script>
 <script src="quotes.js"></script>
-<script src="script.js"></script>
+<script src="js/dashboard.js"></script>
 </body>
 </html>

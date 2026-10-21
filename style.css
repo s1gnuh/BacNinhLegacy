@@ -54,6 +54,10 @@ p { margin: 0; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
+/* link quay về trang chủ */
+.back-link { align-self: flex-start; font-size: 13px; color: var(--muted); text-decoration: none; }
+.back-link:hover { color: var(--fg); text-decoration: underline; }
+
 /* header */
 .head { display: flex; flex-direction: column; gap: 14px; }
 .eyebrow { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
@@ -182,6 +186,34 @@ ul.rules { margin: 0; padding-left: 18px; display: flex; flex-direction: column;
 .tabpane.in { animation: pane-in .3s ease both; }
 @keyframes pane-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .sec-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+
+/* thống kê trang chủ */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.stat-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.stat-v { font-family: var(--font-display); font-size: 26px; font-weight: 600; line-height: 1.1; }
+.stat-l { font-size: 12px; color: var(--muted); }
+
+/* PR */
+.pr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.pr-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.pr-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.pr-v { font-family: var(--font-display); font-size: 24px; font-weight: 600; }
+.pr-d { font-size: 12px; color: var(--muted); }
+
+/* mục tiêu */
+.goal-form, .race-form { display: flex; flex-direction: column; gap: 10px; }
+.race-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.goal-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.goal-row:first-child { border-top: 0; }
+.goal-info { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.goal-info strong { font-size: 14px; font-weight: 600; }
+
+/* danh sách giải */
+.race-list { display: flex; flex-direction: column; gap: 10px; }
+.race-card { display: flex; flex-direction: column; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; text-decoration: none; color: var(--fg); transition: border-color .15s, transform .12s; }
+.race-card:hover { border-color: var(--fg); }
+.race-card:active { transform: scale(.99); }
+.race-card strong { font-size: 16px; }
 
 /* quote card */
 .quote-card { gap: 10px; }

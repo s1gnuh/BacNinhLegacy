@@ -1,19 +1,25 @@
-// Service worker: app-shell cache so the training plan still opens offline.
-// Bump CACHE when index.html/style.css/script.js change meaningfully.
-var CACHE = 'bn27-cache-v6';
+// Service worker: app-shell cache cho cả trang chủ (index.html) lẫn trang
+// giải (race.html). Bump CACHE khi các file dưới đổi đáng kể.
+var CACHE = 'bn27-cache-v7';
 var STATE = 'bn27-state';
 var CORE = [
   './',
   './index.html',
+  './race.html',
   './style.css',
-  './script.js',
   './quotes.js',
   './rest-tips.json',
   './manifest.json',
-  './sections/overview.html',
-  './sections/schedule.html',
-  './sections/strava.html',
-  './sections/reference.html',
+  './js/core.js',
+  './js/templates.js',
+  './js/blocks.js',
+  './js/races.js',
+  './js/runlog.js',
+  './js/goals.js',
+  './js/migrate.js',
+  './js/notify.js',
+  './js/dashboard.js',
+  './js/race-page.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',

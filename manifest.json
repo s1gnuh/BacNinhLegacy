@@ -1,7 +1,7 @@
 {
-  "name": "Giáo án Bắc Ninh 10K",
-  "short_name": "BN 10K",
-  "description": "Giáo án tập luyện 10K cho Bắc Ninh Legacy Marathon 2027",
+  "name": "Nhật ký chạy",
+  "short_name": "Nhật ký chạy",
+  "description": "Km, streak, PR, mục tiêu cá nhân và các giải đấu đang theo đuổi",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
