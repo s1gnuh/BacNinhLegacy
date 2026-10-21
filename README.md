@@ -22,15 +22,37 @@ Trang web tĩnh một trang, theo dõi giáo án tập luyện 10K cho **Bắc N
 
 Toàn bộ trạng thái (buổi đã chạy, lịch tùy chỉnh, ghi chú, ảnh Strava) chỉ lưu **trong trình duyệt của bạn** (`localStorage` + `IndexedDB`), không gửi lên server nào. Đổi trình duyệt hoặc xóa dữ liệu trang là mất hết — hiện chưa có tính năng xuất/nhập backup.
 
-## Giới hạn của phần nhắc chạy
+## Thiết lập nhắc chạy trên Vercel
 
-Trang này không có máy chủ nên **không dùng được Web Push thật**. Lời nhắc chạy bằng cơ chế cục bộ, mức độ tin cậy khác nhau tùy máy:
+Phần nhắc chạy có hai tầng. Tầng cục bộ chạy sẵn không cần cấu hình gì. Tầng Web Push cần bốn bước dưới đây, làm một lần:
 
-- **Android, đã thêm vào màn hình chính**: service worker đăng ký Periodic Background Sync (tối thiểu 12 tiếng/lần). Hệ điều hành quyết định lúc nào đánh thức, nên lời nhắc có thể lệch giờ.
-- **iPhone**: bắt buộc thêm vào màn hình chính rồi mở từ icon đó thì Safari mới cho phép thông báo (iOS 16.4 trở lên). iOS không hỗ trợ Periodic Background Sync, nên chỉ nhắc được khi app đang mở.
+**1. Thêm kho lưu subscription.** Trong Vercel: Project → Storage → chọn Upstash Redis (gói free) → Connect. Vercel sẽ tự thêm `KV_REST_API_URL` và `KV_REST_API_TOKEN` vào project.
+
+**2. Thêm biến môi trường.** Mở `.env.local` ở máy (file này đã bị gitignore, chứa cặp khoá VAPID sinh sẵn) rồi dán `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET` vào Project Settings → Environment Variables. Muốn sinh cặp khoá mới thì chạy `npx web-push generate-vapid-keys`.
+
+**3. Deploy lại** để Vercel nạp biến môi trường và đăng ký cron trong `vercel.json`.
+
+**4. Bật trong app**: mở tab Tổng quan → Bật nhắc nhở. Khi dòng trạng thái ghi "kèm thông báo đẩy từ máy chủ" là đã chạy.
+
+### Giờ nhắc và giới hạn gói Hobby
+
+Cron đang đặt `0 11 * * *`, tức 18:00 giờ Việt Nam. Gói Hobby của Vercel **chỉ cho cron chạy một lần mỗi ngày**, nên:
+
+- Ô "Giờ nhắc" trong app nên đặt **sớm hơn hoặc bằng** giờ cron. Cron chỉ gửi khi giờ địa phương đã qua giờ bạn chọn; chọn 20:00 trong khi cron chạy lúc 18:00 thì hôm đó không có thông báo nào.
+- Muốn đổi giờ, sửa `schedule` trong `vercel.json` (giờ UTC, Việt Nam = UTC+7).
+- Gói Pro cho cron chạy dày hơn, lúc đó đổi thành `0 * * * *` là ô giờ nhắc hoạt động đúng từng giờ.
+
+Máy chủ lưu múi giờ của từng máy đăng ký nên tính ngày và giờ theo đúng nơi bạn đang ở.
+
+### Khi chưa có máy chủ
+
+Nếu mở từ GitHub Pages, từ file, hoặc chưa cấu hình xong, app tự lùi về nhắc cục bộ:
+
+- **Android đã thêm vào màn hình chính**: Periodic Background Sync (tối thiểu 12 tiếng/lần), hệ điều hành quyết định lúc đánh thức nên giờ có thể lệch.
+- **iPhone**: phải thêm vào màn hình chính rồi mở từ icon đó thì Safari mới cho phép thông báo (iOS 16.4+). iOS không hỗ trợ Periodic Background Sync nên chỉ nhắc khi app đang mở.
 - **Khi app đang mở**: hẹn giờ chính xác bằng `setTimeout`.
 
-Trạng thái giáo án được chép sang Cache Storage (`bn27-state`) vì service worker không đọc được `localStorage`, nhờ đó lần chạy nền vẫn biết hôm nay còn buổi nào chưa xong. `sw.js` đã có sẵn handler `push` để sau này cắm máy chủ đẩy thông báo vào là chạy.
+Trạng thái giáo án được chép sang Cache Storage (`bn27-state`) vì service worker không đọc được `localStorage`, nhờ đó lần chạy nền vẫn biết hôm nay còn buổi nào chưa xong.
 
 Mục "Đọc bằng Claude" trong phần ảnh Strava dùng API `window.claude.use('sample')`, chỉ hoạt động khi trang được mở trong Claude Artifacts. Khi host trên GitHub Pages, nút này tự ẩn và bạn nhập số liệu tay như bình thường — không ảnh hưởng các tính năng khác.
 
@@ -47,6 +69,12 @@ style.css      toàn bộ giao diện và hiệu ứng
 script.js      logic: lịch, tick, biểu đồ, ghi chú, ảnh Strava, pháo hoa, tab, nhắc chạy
 quotes.js      200 câu truyền động lực
 sw.js          service worker: cache offline, thông báo nhắc chạy
+api/           serverless function trên Vercel
+  vapid.js        trả khoá công khai VAPID cho trình duyệt
+  subscribe.js    lưu/xoá subscription kèm trạng thái giáo án
+  cron.js         chạy hằng ngày, đẩy thông báo nếu hôm nay còn buổi chưa xong
+lib/store.js   kho subscription trên Upstash Redis
+vercel.json    header cache và lịch cron
 manifest.json  khai báo PWA
 icons/         icon app (192/512/apple-touch/favicon)
 ```

@@ -450,15 +450,21 @@
   /* ================= nhắc chạy qua thông báo ================= */
   var NT = (function () {
     var KEY = 'bn27-notify';
+    // "99:99" vẫn khớp \d{2}:\d{2} nên phải xét cả khoảng giá trị, không thì
+    // giờ nhắc vô nghĩa sẽ làm phần nhắc im lặng không chạy.
+    function okTime(t) {
+      var m = typeof t === 'string' ? /^(\d{2}):(\d{2})$/.exec(t) : null;
+      return !!m && +m[1] <= 23 && +m[2] <= 59;
+    }
     var cfg = { on: false, time: '18:00' };
     try {
       var s = JSON.parse(store.get(KEY) || 'null');
       if (s && typeof s === 'object') {
         cfg.on = !!s.on;
-        if (/^\d{2}:\d{2}$/.test(s.time)) cfg.time = s.time;
+        if (okTime(s.time)) cfg.time = s.time;
       }
     } catch (e) {}
-    var timer = 0;
+    var timer = 0, hasPush = false;
 
     function save() { store.set(KEY, JSON.stringify(cfg)); }
     function canNotify() { return 'Notification' in window && 'serviceWorker' in navigator; }
@@ -467,12 +473,16 @@
 
     // Service worker không đọc được localStorage, nên trạng thái được chép
     // sang Cache để lần chạy nền sau còn biết hôm nay có buổi nào chưa xong.
-    function syncState() {
-      if (!('caches' in window)) return Promise.resolve();
-      var days = all().filter(function (x) { return x.s.type !== 'rest'; }).map(function (x) {
+    function buildDays() {
+      return all().filter(function (x) { return x.s.type !== 'rest'; }).map(function (x) {
         return { date: iso(x.date), title: x.s.title, done: !!done[x.id] };
       });
-      var body = JSON.stringify({ on: cfg.on, time: cfg.time, days: days });
+    }
+
+    function syncState() {
+      pushState();
+      if (!('caches' in window)) return Promise.resolve();
+      var body = JSON.stringify({ on: cfg.on, time: cfg.time, days: buildDays() });
       return caches.open('bn27-state')
         .then(function (c) { return c.put(stateUrl(), new Response(body, { headers: { 'Content-Type': 'application/json' } })); })
         .catch(function () {});
@@ -529,6 +539,78 @@
       }).catch(function () {});
     }
 
+    /* --- Web Push qua máy chủ: nhắc đúng giờ cả khi đã đóng app --- */
+    var pushSub = null, pushTimer = 0;
+
+    function b64ToBytes(s) {
+      var pad = '='.repeat((4 - (s.length % 4)) % 4);
+      var raw = atob((s + pad).replace(/-/g, '+').replace(/_/g, '/'));
+      var out = new Uint8Array(raw.length);
+      for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+      return out;
+    }
+
+    function vapidKey() {
+      return fetch('api/vapid')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { return d && d.key ? d.key : null; })
+        .catch(function () { return null; });
+    }
+
+    // Không có backend (mở từ file hoặc GitHub Pages) thì bỏ qua, phần nhắc
+    // cục bộ vẫn chạy như cũ.
+    function enablePush() {
+      if (!('PushManager' in window) || !granted()) return Promise.resolve(false);
+      return vapidKey().then(function (key) {
+        if (!key) return false;
+        return navigator.serviceWorker.ready.then(function (reg) {
+          return reg.pushManager.getSubscription().then(function (existing) {
+            if (existing) return existing;
+            return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(key) });
+          });
+        }).then(function (sub) {
+          pushSub = sub;
+          return postSub(sub);
+        }).then(function () { return true; });
+      }).catch(function () { return false; });
+    }
+
+    function postSub(sub) {
+      if (!sub) return Promise.resolve();
+      return fetch('api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscription: sub,
+          on: cfg.on,
+          time: cfg.time,
+          tz: (Intl.DateTimeFormat().resolvedOptions() || {}).timeZone || 'Asia/Ho_Chi_Minh',
+          days: buildDays()
+        })
+      }).catch(function () {});
+    }
+
+    // Gộp nhiều lần render thành một lần gửi.
+    function pushState() {
+      if (!pushSub) return;
+      clearTimeout(pushTimer);
+      pushTimer = setTimeout(function () { postSub(pushSub); }, 2000);
+    }
+
+    function disablePush() {
+      if (!pushSub) return Promise.resolve();
+      var sub = pushSub;
+      pushSub = null;
+      clearTimeout(pushTimer);
+      return fetch('api/subscribe', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub })
+      }).catch(function () {}).then(function () {
+        return sub.unsubscribe ? sub.unsubscribe().catch(function () {}) : null;
+      });
+    }
+
     function render() {
       var btn = el('nt-toggle'), st = el('nt-status'), tm = el('nt-time'), test = el('nt-test');
       if (!btn || !st) return;
@@ -549,9 +631,10 @@
         return;
       }
       btn.textContent = cfg.on && granted() ? 'Tắt nhắc nhở' : 'Bật nhắc nhở';
-      st.textContent = cfg.on && granted()
-        ? 'Đang bật, nhắc lúc ' + cfg.time + ' vào ngày có buổi chạy chưa đánh dấu xong. Không có máy chủ đẩy thông báo nên lời nhắc đến khi điện thoại đánh thức app chạy nền hoặc khi bạn mở app, giờ giấc có thể lệch.'
-        : 'Đang tắt.';
+      if (!cfg.on || !granted()) { st.textContent = 'Đang tắt.'; return; }
+      st.textContent = hasPush
+        ? 'Đang bật kèm thông báo đẩy từ máy chủ, nhắc cả khi đã đóng app. Chỉ nhắc vào ngày có buổi chạy chưa đánh dấu xong.'
+        : 'Đang bật, nhắc lúc ' + cfg.time + ' vào ngày có buổi chạy chưa đánh dấu xong. Máy chủ đẩy thông báo chưa sẵn sàng nên lời nhắc chỉ đến khi app đang mở hoặc khi điện thoại đánh thức app chạy nền.';
     }
 
     function enable() {
@@ -563,19 +646,35 @@
           // Dùng chung tag nên chỉ gửi một cái: ưu tiên lời nhắc thật.
           if (!nudgeIfDue()) show('Đã bật nhắc chạy', 'Sẽ nhắc lúc ' + cfg.time + ' vào ngày có buổi chạy.');
           schedule();
+          enablePush().then(function (ok) { hasPush = ok; render(); });
         }
         render();
       }).catch(function () { render(); });
     }
 
-    function disable() { cfg.on = false; save(); clearTimeout(timer); syncState(); render(); }
+    function disable() {
+      cfg.on = false; save(); clearTimeout(timer);
+      syncState();
+      disablePush().then(function () { hasPush = false; render(); });
+      render();
+    }
 
     return {
       render: render,
+      // Lần mở sau: nối lại subscription cũ để trạng thái giáo án tiếp tục
+      // được đẩy lên máy chủ.
+      init: function () {
+        render();
+        if (cfg.on && granted()) {
+          registerPeriodic();
+          schedule();
+          enablePush().then(function (ok) { hasPush = ok; render(); });
+        }
+      },
       sync: function () { syncState(); schedule(); },
       toggle: function () { if (cfg.on && granted()) disable(); else enable(); },
       setTime: function (v) {
-        if (!/^\d{2}:\d{2}$/.test(v)) return;
+        if (!okTime(v)) return;
         cfg.time = v; save(); syncState(); schedule(); render();
       },
       test: function () { show('Thử thông báo', 'Nếu bạn thấy dòng này thì nhắc nhở đang chạy được.'); }
@@ -940,7 +1039,7 @@
     setTab(store.get('bn27-tab') || 'overview', false);
     renderAll();
     renderQuote();
-    NT.render();
+    NT.init();
     countUp(el('days'), Math.max(0, Math.ceil((RACE - today0()) / 864e5)));
     loadLogs().then(function () { renderAll(); });
 

@@ -1,0 +1,10 @@
+{
+  "name": "bacninh-legacy-10k",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Giáo án tập luyện 10K cho Bắc Ninh Legacy Marathon 2027",
+  "dependencies": {
+    "@upstash/redis": "1.34.3",
+    "web-push": "3.6.7"
+  }
+}
