@@ -1,6 +1,6 @@
 // Service worker: app-shell cache so the training plan still opens offline.
 // Bump CACHE when index.html/style.css/script.js change meaningfully.
-var CACHE = 'bn27-cache-v5';
+var CACHE = 'bn27-cache-v6';
 var STATE = 'bn27-state';
 var CORE = [
   './',
@@ -42,9 +42,16 @@ function isCode(req) {
   return /\.(html|css|js|json)$/.test(p);
 }
 
+// Lời gọi API không bao giờ được cache: chúng phản ánh trạng thái ngay lúc
+// hỏi. Cache /api/health từng làm nó báo lỗi cũ sau khi server đã sửa xong.
+function isApi(req) {
+  return /(^|\/)api\//.test(new URL(req.url).pathname);
+}
+
 self.addEventListener('fetch', function (e) {
   var req = e.request;
   if (req.method !== 'GET' || req.url.indexOf(self.location.origin) !== 0) return;
+  if (isApi(req)) return;
 
   if (isCode(req)) {
     e.respondWith(
