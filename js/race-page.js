@@ -229,7 +229,7 @@
     var head = '<div class="cdh"><strong>' + C.WD[(d.getDay() + 6) % 7] + ', ' + C.fmt(d) + '/' + d.getFullYear() + '</strong></div>';
     if (!x) {
       var outside = !b || d < b.first || d > b.last;
-      box.innerHTML = head + '<p class="hint">' + (outside ? 'Ngày này nằm ngoài kỳ giáo án.' : 'Không có buổi chạy.') + '</p>' + photoStrip(calSel, null);
+      box.innerHTML = head + '<p class="hint">' + (outside ? 'Ngày này nằm ngoài kỳ giáo án.' : 'Không có buổi chạy.') + '</p>' + dayCards(calSel, null);
       return;
     }
     var dn = !!block.done[x.id];
@@ -246,13 +246,17 @@
       '<strong class="cdt">' + C.esc(x.s.title) + '</strong><p class="hint">' + C.esc(x.s.d) + '</p>' +
       (bits.length ? '<p class="actual"><span class="chip t-easy">Strava</span><span class="num">' + C.esc(bits.join(' · ')) + '</span></p>' : '') +
       (block.notes[x.id] ? '<p class="cdn">' + C.esc(block.notes[x.id]) + '</p>' : '') +
-      photoStrip(calSel, x.id) +
-      (x.s.type === 'race' ? '' : '<button type="button" class="btn-sm' + (dn ? '' : ' primary') + '" data-cal-done="' + x.id + '">' + (dn ? 'Bỏ đánh dấu đã chạy' : 'Đánh dấu đã chạy') + '</button>');
+      (x.s.type === 'race' ? '' : '<button type="button" class="btn-sm' + (dn ? '' : ' primary') + '" data-cal-done="' + x.id + '">' + (dn ? 'Bỏ đánh dấu đã chạy' : 'Đánh dấu đã chạy') + '</button>') +
+      dayCards(calSel, x.id);
   }
-  function photoStrip(key, sid) {
+
+  // Ảnh của ngày đang chọn, hiện ở dạng form đầy đủ — đây là chỗ sửa số liệu
+  // thay cho tab Ảnh & nhật ký.
+  function dayCards(key, sid) {
     var pics = photosOn(key, sid);
     if (!pics.length) return '';
-    return '<div class="cal-pics">' + pics.map(function (l) { return '<img src="' + l.url + '" alt="' + C.esc(l.note || 'Ảnh ngày ' + key) + '" loading="lazy">'; }).join('') + '</div>';
+    return '<div class="cal-cards"><p class="hint">Sửa số liệu của ngày này ngay bên dưới.</p>' +
+      pics.map(function (l) { return cardHtml(l, 'cal'); }).join('') + '</div>';
   }
 
   /* ================= tham khảo ================= */
@@ -388,6 +392,7 @@
       return p.then(function () {
         return RL.shrink(f).then(function (b) {
           var l = RL.newRun({ blob: b, cat: cat, blockId: block ? block.id : '', raceId: raceId });
+          l.expanded = true;  // ảnh mới cần điền số liệu ngay
           logs.unshift(l);
           return RL.saveRun(l);
         });
@@ -429,6 +434,61 @@
     }).then(function () { l.busy = false; renderAll(); });
   }
 
+  // Thẻ đầy đủ (có ô nhập). Dùng cho ảnh vừa tải lên ở tab Ảnh & nhật ký, và
+  // cho mọi ảnh của một ngày khi mở ngày đó trong lịch — đó là chỗ sửa chính.
+  // `prefix` để id các ô không đụng nhau khi cùng một ảnh hiện ở hai nơi.
+  function cardHtml(l, prefix) {
+    var p = prefix + '-' + l.id + '-', isPhoto = l.cat === 'photo';
+    var sess = sessions().filter(function (x) { return x.s.type !== 'rest'; });
+    var linkOpts = '<option value="">Chưa gắn vào buổi nào</option>' + sess.map(function (x) {
+      return '<option value="' + x.id + '"' + (x.id === l.sessionId ? ' selected' : '') + '>Tuần ' + (x.wi + 1) + ' · ' + C.WD[x.off] + ' ' + C.fmt(x.date) + ' · ' + C.esc(x.s.title) + '</option>';
+    }).join('');
+    var kindOpts = Object.keys(RL.KIND).map(function (k) { return '<option value="' + k + '"' + (k === l.kind ? ' selected' : '') + '>' + RL.KIND[k] + '</option>'; }).join('');
+    var catOpts = [['strava', 'Ảnh Strava (có số liệu)'], ['photo', 'Ảnh chạy (chỉ ảnh)']].map(function (c) {
+      return '<option value="' + c[0] + '"' + (c[0] === l.cat ? ' selected' : '') + '>' + c[1] + '</option>';
+    }).join('');
+    var statFields = isPhoto ? '' :
+      '<label class="fld"><span>Loại</span><select id="' + p + 'kind" data-f="kind">' + kindOpts + '</select></label>' +
+      '<label class="fld"><span>Quãng đường (km)</span><input type="text" inputmode="decimal" id="' + p + 'km" data-f="km" value="' + C.esc(l.km) + '" placeholder="6,03"></label>' +
+      '<label class="fld"><span>Pace (phút/km)</span><input type="text" id="' + p + 'pace" data-f="pace" value="' + C.esc(l.pace) + '" placeholder="7:17"></label>' +
+      '<label class="fld"><span>Thời gian</span><input type="text" id="' + p + 'time" data-f="time" value="' + C.esc(l.time) + '" placeholder="43:56"></label>';
+    return '<article class="lg' + (l.zoom ? ' zoom' : '') + (isPhoto ? ' photo' : '') + '" data-id="' + l.id + '">' +
+      '<button type="button" class="lg-thumb" data-act="zoom" aria-label="' + (l.zoom ? 'Thu nhỏ ảnh' : 'Phóng to ảnh') + '"><img src="' + l.url + '" alt="' + (isPhoto ? 'Ảnh buổi chạy' : 'Ảnh chụp màn hình Strava') + '"></button>' +
+      '<div class="lg-body"><div class="lg-fields">' +
+      '<label class="fld"><span>Loại ảnh</span><select id="' + p + 'cat" data-f="cat">' + catOpts + '</select></label>' +
+      '<label class="fld"><span>Ngày</span><input type="date" id="' + p + 'date" data-f="date" value="' + C.esc(l.date) + '"></label>' +
+      statFields +
+      '<label class="fld wide"><span>Chú thích</span><input type="text" id="' + p + 'note" data-f="note" value="' + C.esc(l.note) + '" placeholder="' + (isPhoto ? 'Chạy ven sông, trời mát' : 'Ghi chú thêm nếu cần') + '"></label>' +
+      (sess.length ? '<label class="fld wide"><span>Buổi trong giáo án</span><select id="' + p + 'link" data-f="link">' + linkOpts + '</select></label>' : '') +
+      '</div>' + (l.msg ? '<div class="lg-msg">' + C.esc(l.msg) + '</div>' : '') +
+      '<div class="lg-actions">' +
+      '<button type="button" class="btn-sm primary" data-act="save">' + (l.saved && Date.now() - l.saved < 4000 ? 'Đã lưu' : 'Lưu') + '</button>' +
+      (!isPhoto && sampleFn ? '<button type="button" class="btn-sm" data-act="read"' + (l.busy ? ' disabled' : '') + '>Đọc bằng Claude</button>' : '') +
+      '<button type="button" class="btn-sm" data-act="del" data-armed="' + (l.armed ? 1 : 0) + '">' + (l.armed ? 'Bấm lại để xóa' : 'Xóa ảnh') + '</button>' +
+      '</div></div></article>';
+  }
+
+  // Thẻ thu gọn: chỉ đọc. Lưu xong là thu về dạng này để danh sách ngắn lại.
+  function miniHtml(l) {
+    var isPhoto = l.cat === 'photo';
+    var bits = [];
+    if (Number(l.km) > 0) bits.push(C.fmtKm(Number(l.km)) + ' km');
+    if (l.pace) bits.push(l.pace + '/km');
+    if (l.time) bits.push(l.time);
+    var sObj = l.sessionId ? findSession(l.sessionId) : null;
+    return '<article class="lg lg-mini' + (l.zoom ? ' zoom' : '') + (isPhoto ? ' photo' : '') + '" data-id="' + l.id + '">' +
+      '<button type="button" class="lg-thumb" data-act="zoom" aria-label="' + (l.zoom ? 'Thu nhỏ ảnh' : 'Phóng to ảnh') + '"><img src="' + l.url + '" alt="' + (isPhoto ? 'Ảnh buổi chạy' : 'Ảnh chụp màn hình Strava') + '"></button>' +
+      '<div class="lg-mini-body">' +
+      '<div class="lg-mini-top"><span class="chip ' + (isPhoto ? 't-long' : 't-easy') + '">' + (isPhoto ? 'Ảnh chạy' : 'Strava') + '</span>' +
+      '<span class="num">' + (l.date ? C.fmt(C.fromIso(l.date)) : 'chưa có ngày') + '</span></div>' +
+      (bits.length ? '<div class="lg-mini-stats num">' + C.esc(bits.join(' · ')) + '</div>' : '') +
+      (l.note ? '<div class="hint">' + C.esc(l.note) + '</div>' : '') +
+      (sObj ? '<div class="hint">Tuần ' + (sObj.wi + 1) + ' · ' + C.esc(sObj.s.title) + '</div>' : '') +
+      '</div>' +
+      '<button type="button" class="btn-sm" data-act="del" data-armed="' + (l.armed ? 1 : 0) + '">' + (l.armed ? 'Bấm lại để xóa' : 'Xóa') + '</button>' +
+      '</article>';
+  }
+
   function renderStrava() {
     var box = el('sv-list');
     if (!box) return;
@@ -439,36 +499,12 @@
     el('sv-sum').textContent = logs.length ? shots.length + ' ảnh Strava · ' + photos.length + ' ảnh chạy · ' + C.fmtKm(km) + ' km đã ghi (không tính đi bộ)' : 'Chưa có ảnh nào.';
     el('sv-read-all').hidden = !(sampleFn && shots.some(function (l) { return !l.km && !l.busy; }));
     el('sv-note').textContent = persist ? '' : 'Trình duyệt này không cho lưu ảnh nên ảnh chỉ còn đến khi bạn đóng trang.';
-    var sess = sessions().filter(function (x) { return x.s.type !== 'rest'; });
     var list = logs.slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || '') || b.added - a.added; });
     box.innerHTML = list.map(function (l) {
-      var p = 'lg-' + l.id + '-', isPhoto = l.cat === 'photo';
-      var linkOpts = '<option value="">Chưa gắn vào buổi nào</option>' + sess.map(function (x) {
-        return '<option value="' + x.id + '"' + (x.id === l.sessionId ? ' selected' : '') + '>Tuần ' + (x.wi + 1) + ' · ' + C.WD[x.off] + ' ' + C.fmt(x.date) + ' · ' + C.esc(x.s.title) + '</option>';
-      }).join('');
-      var kindOpts = Object.keys(RL.KIND).map(function (k) { return '<option value="' + k + '"' + (k === l.kind ? ' selected' : '') + '>' + RL.KIND[k] + '</option>'; }).join('');
-      var catOpts = [['strava', 'Ảnh Strava (có số liệu)'], ['photo', 'Ảnh chạy (chỉ ảnh)']].map(function (c) {
-        return '<option value="' + c[0] + '"' + (c[0] === l.cat ? ' selected' : '') + '>' + c[1] + '</option>';
-      }).join('');
-      var statFields = isPhoto ? '' :
-        '<label class="fld"><span>Loại</span><select id="' + p + 'kind" data-f="kind">' + kindOpts + '</select></label>' +
-        '<label class="fld"><span>Quãng đường (km)</span><input type="text" inputmode="decimal" id="' + p + 'km" data-f="km" value="' + C.esc(l.km) + '" placeholder="6,03"></label>' +
-        '<label class="fld"><span>Pace (phút/km)</span><input type="text" id="' + p + 'pace" data-f="pace" value="' + C.esc(l.pace) + '" placeholder="7:17"></label>' +
-        '<label class="fld"><span>Thời gian</span><input type="text" id="' + p + 'time" data-f="time" value="' + C.esc(l.time) + '" placeholder="43:56"></label>';
-      return '<article class="lg' + (l.zoom ? ' zoom' : '') + (isPhoto ? ' photo' : '') + '" data-id="' + l.id + '">' +
-        '<button type="button" class="lg-thumb" data-act="zoom" aria-label="' + (l.zoom ? 'Thu nhỏ ảnh' : 'Phóng to ảnh') + '"><img src="' + l.url + '" alt="' + (isPhoto ? 'Ảnh buổi chạy' : 'Ảnh chụp màn hình Strava') + '"></button>' +
-        '<div class="lg-body"><div class="lg-fields">' +
-        '<label class="fld"><span>Loại ảnh</span><select id="' + p + 'cat" data-f="cat">' + catOpts + '</select></label>' +
-        '<label class="fld"><span>Ngày</span><input type="date" id="' + p + 'date" data-f="date" value="' + C.esc(l.date) + '"></label>' +
-        statFields +
-        '<label class="fld wide"><span>Chú thích</span><input type="text" id="' + p + 'note" data-f="note" value="' + C.esc(l.note) + '" placeholder="' + (isPhoto ? 'Chạy ven sông, trời mát' : 'Ghi chú thêm nếu cần') + '"></label>' +
-        (sess.length ? '<label class="fld wide"><span>Buổi trong giáo án</span><select id="' + p + 'link" data-f="link">' + linkOpts + '</select></label>' : '') +
-        '</div>' + (l.msg ? '<div class="lg-msg">' + C.esc(l.msg) + '</div>' : '') +
-        '<div class="lg-actions">' +
-        '<button type="button" class="btn-sm primary" data-act="save">' + (l.saved && Date.now() - l.saved < 4000 ? 'Đã lưu' : 'Lưu') + '</button>' +
-        (!isPhoto && sampleFn ? '<button type="button" class="btn-sm" data-act="read"' + (l.busy ? ' disabled' : '') + '>Đọc bằng Claude</button>' : '') +
-        '<button type="button" class="btn-sm" data-act="del" data-armed="' + (l.armed ? 1 : 0) + '">' + (l.armed ? 'Bấm lại để xóa' : 'Xóa ảnh') + '</button>' +
-        '</div></div></article>';
+      // Ảnh vừa tải lên thì mở form để điền ngay. Ảnh chưa có ngày lẫn buổi
+      // cũng để mở, vì lịch không với tới được nên sẽ không sửa được ở đâu cả.
+      var editable = l.expanded || (!l.date && !l.sessionId);
+      return editable ? cardHtml(l, 'sv') : miniHtml(l);
     }).join('');
   }
 
@@ -551,33 +587,36 @@
       if (b) setTab(b.getAttribute('data-tab'), true);
     });
 
-    on('sv-list', 'change', function (e) {
+    // Cùng một bộ xử lý cho tab Ảnh & nhật ký lẫn phần chi tiết ngày trong
+    // lịch, vì hai nơi dùng chung cấu trúc thẻ .lg[data-id].
+    function onFieldChange(e) {
       var t = e.target, f = t && t.getAttribute('data-f'), art = t && t.closest('.lg');
       if (!f || !art) return;
       var l = findLog(art.getAttribute('data-id'));
       if (!l) return;
       var v = String(t.value).trim();
-      if (f === 'link') { l.sessionId = v; if (v) B.setDone(block, v, true); }
+      if (f === 'link') { l.sessionId = v; if (v && block) B.setDone(block, v, true); }
       else if (f === 'km') l.km = v.replace(',', '.');
       else l[f] = v;
       if (f === 'date' || f === 'kind') linkRun(l);
       RL.saveRun(l);
       renderAll(t.id);
-    });
-    on('sv-list', 'click', function (e) {
+    }
+    function onCardAction(e) {
       var b = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
       var art = e.target && e.target.closest ? e.target.closest('.lg') : null;
       if (!b || !art) return;
       var l = findLog(art.getAttribute('data-id'));
       if (!l) return;
       var act = b.getAttribute('data-act');
-      if (act === 'zoom') { l.zoom = !l.zoom; renderStrava(); }
+      if (act === 'zoom') { l.zoom = !l.zoom; renderStrava(); renderDay(); }
       else if (act === 'save') {
         var prevPct = block ? B.stats(block).pct : 0;
         var wasDone = l.sessionId && block ? !!block.done[l.sessionId] : false;
         readCard(art, l);
         var now = new Date();
         l.saved = Date.now();
+        l.expanded = false;   // lưu xong là thu gọn, danh sách khỏi dài lê thê
         l.msg = 'Đã lưu lúc ' + C.pad(now.getHours()) + ':' + C.pad(now.getMinutes()) + '.';
         RL.saveRun(l).then(function () {
           renderAll(); showStorage();
@@ -589,19 +628,24 @@
             if (l.time) sum.push(l.time);
             C.toast('Đã lưu vào hệ thống', sum.join(' · ') || (l.cat === 'photo' ? 'Ảnh chạy đã được lưu.' : 'Ảnh đã được lưu.'));
           }
-          setTimeout(renderStrava, 4200);
         });
       }
       else if (act === 'read') readLog(l);
       else if (act === 'del') {
-        if (!l.armed) { l.armed = true; renderStrava(); setTimeout(function () { if (l.armed) { l.armed = false; renderStrava(); } }, 4000); }
-        else {
+        if (!l.armed) {
+          l.armed = true; renderStrava(); renderDay();
+          setTimeout(function () { if (l.armed) { l.armed = false; renderStrava(); renderDay(); } }, 4000);
+        } else {
           try { URL.revokeObjectURL(l.url); } catch (x) {}
           logs = logs.filter(function (z) { return z !== l; });
           RL.removeRun(l.id); renderAll();
         }
       }
-    });
+    }
+    on('sv-list', 'change', onFieldChange);
+    on('sv-list', 'click', onCardAction);
+    on('cal-day', 'change', onFieldChange);
+    on('cal-day', 'click', onCardAction);
     on('sv-read-all', 'click', function () {
       logs.filter(function (l) { return l.cat !== 'photo' && !l.km && !l.busy; }).reduce(function (p, l) { return p.then(function () { return readLog(l); }); }, Promise.resolve());
     });

@@ -44,7 +44,7 @@ window.RunLog = (function (Core) {
              title: r.title || '', kind: r.kind || 'run', cat: r.cat === 'photo' ? 'photo' : 'strava',
              blockId: r.blockId || '', sessionId: r.sessionId || '', raceId: r.raceId || '',
              note: r.note || '', added: r.added || 0,
-             msg: '', busy: false, zoom: false, armed: false, saved: 0 };
+             msg: '', busy: false, zoom: false, armed: false, saved: 0, expanded: false };
   }
   function record(l) {
     return { id: l.id, blob: l.blob, date: l.date, km: l.km, pace: l.pace, time: l.time, title: l.title,
