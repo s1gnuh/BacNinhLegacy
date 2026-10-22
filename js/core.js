@@ -12,6 +12,11 @@ window.Core = (function () {
   function today0() { var n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
   function addDays(d, n) { var r = new Date(d); r.setDate(r.getDate() + n); return r; }
   function fmtKm(x) { return (Math.round((Number(x) || 0) * 10) / 10).toString().replace('.', ','); }
+  function fmtDuration(secs) {
+    var h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
+    if (h === 0) return m + ' phút';
+    return h + 'h ' + (m ? m + 'p' : '');
+  }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function uid(prefix) { return (prefix || 'id') + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
   function qs(name) { return new URLSearchParams(location.search).get(name); }
@@ -204,7 +209,7 @@ window.Core = (function () {
   return {
     WD: WD, LABEL: LABEL, TRAINING_RULES: TRAINING_RULES,
     pad: pad, iso: iso, fromIso: fromIso, fmt: fmt, today0: today0, addDays: addDays,
-    fmtKm: fmtKm, esc: esc, uid: uid, qs: qs,
+    fmtKm: fmtKm, fmtDuration: fmtDuration, esc: esc, uid: uid, qs: qs,
     store: store, toast: toast, FX: FX, registerSW: registerSW
   };
 })();

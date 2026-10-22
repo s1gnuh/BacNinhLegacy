@@ -71,7 +71,8 @@
       { label: 'Km tuần này', value: C.fmtKm(weekKm) },
       { label: 'Km tháng này', value: C.fmtKm(monthKm) },
       { label: 'Streak', value: streak + ' ngày' },
-      { label: 'Tổng', value: C.fmtKm(totalKm) + ' km · ' + totalN + ' buổi' }
+      { label: 'Tổng', value: C.fmtKm(totalKm) + ' km · ' + totalN + ' buổi' },
+      { label: 'Thời gian', value: C.fmtDuration(RL.totalTimeSecs(runs)) }
     ];
     el('stat-grid').innerHTML = cards.map(function (c) {
       return '<div class="stat-card"><div class="stat-v num">' + c.value + '</div><div class="stat-l">' + c.label + '</div></div>';

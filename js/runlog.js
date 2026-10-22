@@ -159,12 +159,19 @@ window.RunLog = (function (Core) {
     return out;
   }
 
+  function totalTimeSecs(runs) {
+    return runs.reduce(function (a, r) {
+      return a + parseTime(r.time);
+    }, 0);
+  }
+
   return {
     KIND: KIND, PR_BUCKETS: PR_BUCKETS,
     openDB: openDB, saveRun: saveRun, removeRun: removeRun, loadRuns: loadRuns,
     shrink: shrink, newRun: newRun, hydrate: hydrate, autoLink: autoLink,
     parseTime: parseTime, formatTime: formatTime,
     computePRs: computePRs, computeStreak: computeStreak,
-    kmBetween: kmBetween, thisWeekRange: thisWeekRange, weeklyKmSeries: weeklyKmSeries
+    kmBetween: kmBetween, thisWeekRange: thisWeekRange, weeklyKmSeries: weeklyKmSeries,
+    totalTimeSecs: totalTimeSecs
   };
 })(window.Core);
