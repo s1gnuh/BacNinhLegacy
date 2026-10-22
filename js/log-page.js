@@ -149,7 +149,7 @@
           return RL.saveRun(l);
         });
       });
-    }, Promise.resolve()).then(function () { renderAll(); });
+    }, Promise.resolve()).then(function () { renderAll(); showStorage(); });
   }
 
   /* ---- đọc form vào object ---- */
@@ -196,17 +196,48 @@
 
   function renderAll() { renderCal(); renderDay(); }
 
+  /* ---- lưu bền ảnh trong IndexedDB ---- */
+  function askPersist() {
+    try {
+      if (navigator.storage && navigator.storage.persist) {
+        navigator.storage.persisted().then(function (p) {
+          if (!p) navigator.storage.persist().catch(function () {});
+        });
+      }
+    } catch (e) {}
+  }
+  function showStorage() {
+    var node = el('log-storage');
+    if (!node) return;
+    try {
+      if (!navigator.storage || !navigator.storage.estimate) { node.textContent = ''; return; }
+      Promise.all([
+        navigator.storage.estimate(),
+        navigator.storage.persisted ? navigator.storage.persisted().catch(function () { return false; }) : Promise.resolve(false)
+      ]).then(function (r) {
+        var mb = (r[0].usage || 0) / 1048576, cap = (r[0].quota || 0) / 1048576;
+        node.textContent = 'Đang dùng ' + (Math.round(mb * 10) / 10) + ' MB'
+          + (cap ? ' trong khoảng ' + Math.round(cap) + ' MB trình duyệt cho phép' : '')
+          + (r[1] ? '. Ảnh được đánh dấu lưu bền.' : '. Chưa được đánh dấu lưu bền, thỉnh thoảng tải ảnh về máy để chắc ăn.');
+      }).catch(function () { node.textContent = ''; });
+    } catch (e) { node.textContent = ''; }
+  }
+
   /* ---- boot ---- */
   function boot() {
     C.registerSW();
+    var now = new Date();
+    el('log-eyebrow').textContent = C.WD[(now.getDay() + 6) % 7] + ', ' + C.fmt(now) + '/' + now.getFullYear();
     calMonth = monthStart(C.today0());
     calSel = C.iso(C.today0());
+    askPersist();
 
     RL.openDB().then(function () {
       return RL.loadRuns();
     }).then(function (all) {
       runs = all;
       renderAll();
+      showStorage();
     });
 
     var prev = el('log-prev');

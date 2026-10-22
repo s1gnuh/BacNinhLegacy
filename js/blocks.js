@@ -39,7 +39,12 @@ window.Blocks = (function (Core, Templates) {
     return okOff(o) ? o : block.schedDef[slotIdx(tpl.days, k)];
   }
   function dayOf(block, wi, off) { return Core.addDays(Core.fromIso(block.startDate), wi * 7 + off); }
-  function visible(block, tpl, day) { return block.mode === 4 || day.k !== 'fri'; }
+  // Khuôn theo cấp độ hiện đủ số buổi đã thiết kế; chế độ 3/4 buổi chỉ áp
+  // cho khuôn cũ, nơi Thứ 6 là buổi nhẹ có thể bỏ.
+  function visible(block, tpl, day) {
+    if (day.role) return true;
+    return block.mode === 4 || day.k !== 'fri';
+  }
 
   // Danh sách buổi tập đầy đủ của 1 block, sắp theo ngày — tương đương
   // hàm `all()` trong script.js bản cũ nhưng nhận block làm tham số.

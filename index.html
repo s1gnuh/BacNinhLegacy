@@ -21,10 +21,11 @@
 <canvas id="fx" aria-hidden="true"></canvas>
 
 <div class="wrap">
+  <nav class="navbar" id="navbar" aria-label="Menu chính"></nav>
+
   <header class="head">
     <div class="eyebrow" id="dash-date"></div>
     <h1>Nhật ký chạy</h1>
-    <a href="log.html" class="back-link">Nhật ký &amp; ảnh →</a>
   </header>
 
   <section class="next" id="next" aria-live="polite"></section>
@@ -69,18 +70,20 @@
   <section>
     <div class="sec-head"><h2 class="sec-title">Các giải đấu</h2><button type="button" class="btn-sm" id="race-add-toggle">+ Tạo giải mới</button></div>
     <form id="race-form" class="race-form panel" hidden>
+      <input type="hidden" id="race-edit-id" value="">
       <label class="fld wide"><span>Tên giải</span><input type="text" id="race-name" required placeholder="Ví dụ: Giải chạy Hà Nội 2027"></label>
       <div class="race-form-row">
         <label class="fld"><span>Ngày thi</span><input type="date" id="race-date" required></label>
         <label class="fld"><span>Cự ly (km)</span><input type="number" id="race-km" min="0" step="any" value="10"></label>
       </div>
-      <label class="fld"><span>Dùng khuôn giáo án</span>
-        <select id="race-template">
-          <option value="">Không dùng — chỉ tạo giải, tự ghi nhật ký</option>
-          <option value="periodized-12w">Chu kỳ 12 tuần (kiểu Bắc Ninh 10K)</option>
-        </select>
+      <label class="fld" id="race-template-wrap"><span>Chọn giáo án theo cấp độ</span>
+        <select id="race-template"></select>
       </label>
-      <button type="submit" class="btn-sm primary">Tạo giải</button>
+      <p class="hint" id="race-template-desc"></p>
+      <div class="panel-actions">
+        <button type="submit" class="btn-sm primary" id="race-submit">Tạo giải</button>
+        <button type="button" class="lnk" id="race-cancel" hidden>Huỷ</button>
+      </div>
     </form>
     <div class="race-list" id="race-list"></div>
   </section>
@@ -103,6 +106,7 @@
 <div class="toast-wrap" id="toasts" aria-live="polite"></div>
 
 <script src="js/core.js"></script>
+<script src="js/nav.js"></script>
 <script src="js/templates.js"></script>
 <script src="js/blocks.js"></script>
 <script src="js/races.js"></script>

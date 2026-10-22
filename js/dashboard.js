@@ -144,6 +144,8 @@
   }
 
   /* ================= danh sách giải ================= */
+  var armedDel = '';
+
   function renderRaces() {
     var box = el('race-list');
     var all = R.list().map(R.refreshStatus);
@@ -151,12 +153,102 @@
     box.innerHTML = all.map(function (r) {
       var d = R.daysUntil(r);
       var when = r.status === 'upcoming' ? 'Còn ' + d + ' ngày' : (r.result ? 'Đã hoàn thành' : 'Đã qua');
-      return '<a class="race-card" href="race.html?id=' + encodeURIComponent(r.id) + '">' +
+      var blk = r.blockId ? B.get(r.blockId) : null;
+      var tpl = blk ? T.get(blk.templateId) : null;
+      var armed = armedDel === r.id;
+      return '<div class="race-card">' +
+        '<a class="race-card-main" href="race.html?id=' + encodeURIComponent(r.id) + '">' +
         '<span class="chip ' + (r.status === 'upcoming' ? 'tag-now' : 't-rest') + '">' + when + '</span>' +
         '<strong>' + C.esc(r.name) + '</strong>' +
         '<span class="hint num">' + C.fmt(C.fromIso(r.date)) + '/' + C.fromIso(r.date).getFullYear() + (r.distanceKm ? ' · ' + r.distanceKm + ' km' : '') + '</span>' +
-        (r.blockId ? '' : '<span class="hint">Không có giáo án</span>') + '</a>';
+        '<span class="hint">' + (tpl ? C.esc(tpl.name) : 'Không có giáo án') + '</span>' +
+        '</a>' +
+        '<div class="race-card-acts">' +
+        '<button type="button" class="btn-sm" data-race-edit="' + r.id + '">Sửa</button>' +
+        '<button type="button" class="btn-sm"' + (armed ? ' data-armed="1"' : '') + ' data-race-del="' + r.id + '">' +
+        (armed ? 'Chắc chắn xoá?' : 'Xoá') + '</button>' +
+        '</div></div>';
     }).join('');
+  }
+
+  /* ================= form giải: dùng chung cho tạo và sửa ================= */
+  function renderTemplateOptions() {
+    var sel = el('race-template');
+    if (!sel) return;
+    var opts = ['<option value="">Không dùng giáo án — chỉ tạo giải, tự ghi nhật ký</option>'];
+    T.levels().forEach(function (t) {
+      var s = T.summary(t);
+      opts.push('<option value="' + t.id + '">' + C.esc(t.name)
+        + ' · đỉnh ' + s.peakKm + ' km/tuần</option>');
+    });
+    opts.push('<option value="' + T.PERIODIZED_12W_ID + '">Chu kỳ 12 tuần (kiểu Bắc Ninh 10K)</option>');
+    sel.innerHTML = opts.join('');
+  }
+  function syncTemplateDesc() {
+    var node = el('race-template-desc');
+    if (!node) return;
+    var t = T.get(el('race-template').value);
+    if (!t) { node.textContent = 'Không sinh giáo án. Bạn vẫn ghi được nhật ký chạy cho giải này.'; return; }
+    var s = T.summary(t);
+    node.textContent = (t.desc ? t.desc + ' ' : '')
+      + '(' + s.weeks + ' tuần · ' + s.daysPerWeek + ' buổi/tuần · đỉnh ' + s.peakKm + ' km/tuần · tổng khoảng ' + s.totalKm + ' km)';
+  }
+  function openCreate() {
+    el('race-form').reset();
+    el('race-edit-id').value = '';
+    el('race-submit').textContent = 'Tạo giải';
+    el('race-cancel').hidden = true;
+    el('race-form').hidden = false;
+    syncTemplateDesc();
+  }
+  function openEdit(id) {
+    var race = R.get(id);
+    if (!race) return;
+    var blk = race.blockId ? B.get(race.blockId) : null;
+    el('race-edit-id').value = id;
+    el('race-name').value = race.name;
+    el('race-date').value = race.date;
+    el('race-km').value = race.distanceKm || 0;
+    el('race-template').value = blk ? blk.templateId : '';
+    el('race-submit').textContent = 'Lưu thay đổi';
+    el('race-cancel').hidden = false;
+    el('race-form').hidden = false;
+    syncTemplateDesc();
+    el('race-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  function closeRaceForm() {
+    el('race-form').reset();
+    el('race-edit-id').value = '';
+    el('race-submit').textContent = 'Tạo giải';
+    el('race-cancel').hidden = true;
+    el('race-form').hidden = true;
+  }
+
+  // Gắn / đổi / bỏ giáo án của một giải. Giữ nguyên tiến độ nếu khuôn không
+  // đổi, chỉ dời lịch theo ngày thi mới.
+  function applyBlock(race, templateId, name, km) {
+    var oldBlock = race.blockId ? B.get(race.blockId) : null;
+    if (!templateId) {
+      if (oldBlock) B.remove(oldBlock.id);
+      race.blockId = null;
+      return null;
+    }
+    if (oldBlock && oldBlock.templateId === templateId) {
+      var tpl = T.get(templateId);
+      oldBlock.startDate = C.iso(T.startFromRaceDate(tpl, C.fromIso(race.date)));
+      oldBlock.raceTitle = name + (km ? ', ' + km + ' km' : '');
+      oldBlock.raceKm = km;
+      B.save(oldBlock);
+      return oldBlock;
+    }
+    if (oldBlock) B.remove(oldBlock.id);
+    var blk = B.create({ id: C.uid('blk-'), templateId: templateId, raceDate: race.date, raceId: race.id, mode: 4 });
+    blk.raceTitle = name + (km ? ', ' + km + ' km' : '');
+    blk.raceDesc = '';
+    blk.raceKm = km;
+    B.save(blk);
+    race.blockId = blk.id;
+    return blk;
   }
 
   /* ================= sự kiện ================= */
@@ -187,28 +279,58 @@
       G.remove(id); renderGoals();
     });
 
-    on('race-add-toggle', 'click', function () { el('race-form').hidden = !el('race-form').hidden; });
+    on('race-add-toggle', 'click', function () {
+      if (el('race-form').hidden) openCreate(); else closeRaceForm();
+    });
+    on('race-cancel', 'click', closeRaceForm);
+    on('race-template', 'change', syncTemplateDesc);
+
     on('race-form', 'submit', function (e) {
       e.preventDefault();
+      var editId = el('race-edit-id').value;
       var name = el('race-name').value.trim();
       var date = el('race-date').value;
       var km = Number(el('race-km').value) || 0;
       var templateId = el('race-template').value;
       if (!name || !date) return;
-      var raceId = C.uid('race-');
-      var blockId = null;
-      if (templateId) {
-        var blk = B.create({ id: C.uid('blk-'), templateId: templateId, raceDate: date, raceId: raceId, mode: 4 });
-        blk.raceTitle = name + (km ? ', ' + km + ' km' : '');
-        blk.raceDesc = '';
-        blk.raceKm = km;
-        B.save(blk);
-        blockId = blk.id;
+
+      if (editId) {
+        var race = R.get(editId);
+        if (!race) return;
+        var hadBlock = race.blockId ? B.get(race.blockId) : null;
+        var swapped = hadBlock && templateId && hadBlock.templateId !== templateId;
+        race.name = name; race.date = date; race.distanceKm = km;
+        applyBlock(race, templateId, name, km);
+        R.save(race);
+        closeRaceForm();
+        renderAll();
+        C.toast('Đã lưu giải', swapped ? 'Đổi giáo án nên tiến độ cũ được làm lại' : name);
+        return;
       }
-      R.create({ id: raceId, name: name, date: date, distanceKm: km, blockId: blockId });
-      el('race-form').reset(); el('race-form').hidden = true;
-      renderRaces();
-      C.toast('Đã tạo giải mới', name + (blockId ? ' · đã sinh giáo án 12 tuần' : ''));
+
+      var fresh = R.create({ id: C.uid('race-'), name: name, date: date, distanceKm: km, blockId: null });
+      applyBlock(fresh, templateId, name, km);
+      R.save(fresh);
+      closeRaceForm();
+      renderAll();
+      C.toast('Đã tạo giải mới', name + (fresh.blockId ? ' · đã sinh giáo án' : ''));
+    });
+
+    on('race-list', 'click', function (e) {
+      var t = e.target;
+      if (!t || !t.getAttribute) return;
+      var editId = t.getAttribute('data-race-edit');
+      if (editId) { armedDel = ''; openEdit(editId); renderRaces(); return; }
+      var delId = t.getAttribute('data-race-del');
+      if (!delId) return;
+      if (armedDel !== delId) { armedDel = delId; renderRaces(); return; }
+      var race = R.get(delId);
+      if (race && race.blockId) B.remove(race.blockId);
+      R.remove(delId);
+      armedDel = '';
+      if (el('race-edit-id').value === delId) closeRaceForm();
+      renderAll();
+      C.toast('Đã xoá giải', (race ? race.name : '') + ' · ảnh và nhật ký vẫn được giữ');
     });
 
     on('nt-toggle', 'click', function () { window.Notify.toggle(); });
@@ -219,6 +341,7 @@
 
   function boot() {
     renderDate(); renderQuote();
+    renderTemplateOptions();
     bindEvents();
     window.Migrate.run().then(function () {
       renderAll();

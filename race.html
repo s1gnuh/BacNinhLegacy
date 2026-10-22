@@ -19,7 +19,7 @@
 <canvas id="fx" aria-hidden="true"></canvas>
 
 <div class="wrap">
-  <a class="back-link" href="index.html">← Trang chủ</a>
+  <nav class="navbar" id="navbar" aria-label="Menu chính"></nav>
 
   <header class="head">
     <div class="eyebrow" id="r-eyebrow"></div>
@@ -39,18 +39,25 @@
 
   <div id="r-noblock" class="panel" hidden>
     <h2>Giải này chưa có giáo án</h2>
-    <p class="hint">Bạn có thể tự chạy tự do và ghi nhật ký cho giải này ở tab Ảnh &amp; nhật ký, không bắt buộc phải theo một giáo án cố định.</p>
+    <p class="hint">Bạn có thể chạy tự do và ghi nhật ký cho giải này ở tab <strong>Nhật ký</strong> trên menu, không bắt buộc phải theo một giáo án cố định. Muốn gắn giáo án thì về <a href="index.html">trang chủ</a> và bấm Sửa ở thẻ của giải.</p>
   </div>
 
   <nav class="tabs" id="tabs" role="tablist" aria-label="Các phần của trang giải">
     <button type="button" role="tab" id="tab-overview" aria-controls="panel-overview" aria-selected="true" data-tab="overview">Tổng quan</button>
-    <button type="button" role="tab" id="tab-schedule" aria-controls="panel-schedule" aria-selected="false" tabindex="-1" data-tab="schedule">Lịch tập</button>
-    <button type="button" role="tab" id="tab-strava" aria-controls="panel-strava" aria-selected="false" tabindex="-1" data-tab="strava">Ảnh &amp; nhật ký</button>
     <button type="button" role="tab" id="tab-ref" aria-controls="panel-ref" aria-selected="false" tabindex="-1" data-tab="ref">Tham khảo</button>
   </nav>
 
   <div class="tabpane" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview">
     <section class="next" id="next" aria-live="polite"></section>
+
+    <section class="panel">
+      <h2>Lịch tập và nhật ký</h2>
+      <p class="hint">Lịch tháng, lịch tuần và chỗ đánh dấu buổi đã chạy nằm ở tab <strong>Lịch tập</strong> trên menu. Ảnh chạy và nhật ký nằm ở tab <strong>Nhật ký</strong>.</p>
+      <div class="panel-actions">
+        <a class="btn-sm" href="plan.html">Mở lịch tập</a>
+        <a class="btn-sm" href="log.html">Mở nhật ký</a>
+      </div>
+    </section>
 
     <section class="panel" id="panel-chart-wrap" hidden>
       <h2>Số km theo tuần</h2>
@@ -60,57 +67,9 @@
 
     <section class="panel" id="panel-sched-wrap" hidden>
       <h2>Ngày chạy trong tuần</h2>
-      <p class="hint">Chọn thứ mặc định cho từng loại buổi, áp dụng cho cả giáo án. Tuần nào bận, đổi riêng ngay trên dòng buổi tập của tuần đó.</p>
+      <p class="hint">Chọn thứ mặc định cho từng loại buổi, áp dụng cho cả giáo án. Tuần nào bận thì đổi riêng tuần đó ở tab Lịch tập.</p>
       <div class="sched-fields" id="sched-fields"></div>
       <div class="panel-actions"><button type="button" class="lnk" id="sched-reset">Về lịch gốc</button></div>
-    </section>
-  </div>
-
-  <div class="tabpane" id="panel-schedule" role="tabpanel" aria-labelledby="tab-schedule" hidden>
-    <section class="panel" id="panel-cal-wrap" hidden>
-      <div class="cal-head">
-        <button type="button" class="cal-nav" id="cal-prev" aria-label="Tháng trước">‹</button>
-        <h2 id="cal-title">Lịch tháng</h2>
-        <button type="button" class="cal-nav" id="cal-next" aria-label="Tháng sau">›</button>
-      </div>
-      <div class="cal-dow" aria-hidden="true"><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span></div>
-      <div class="cal" id="cal" role="grid" aria-label="Lịch tập theo tháng"></div>
-      <div class="cal-legend">
-        <span><i class="lg-dot t-easy"></i>Nhẹ</span>
-        <span><i class="lg-dot t-quality"></i>Chất lượng</span>
-        <span><i class="lg-dot t-long"></i>Dài</span>
-        <span><i class="lg-dot t-race"></i>Thi đấu</span>
-      </div>
-      <div class="cal-day" id="cal-day" aria-live="polite"></div>
-    </section>
-
-    <section id="panel-weeks-wrap" hidden>
-      <div class="sec-head">
-        <h2 class="sec-title">Lịch tuần</h2>
-        <button type="button" class="btn-sm" id="jump-now">Tới tuần này</button>
-      </div>
-      <div class="weeks" id="weeks"></div>
-    </section>
-  </div>
-
-  <div class="tabpane" id="panel-strava" role="tabpanel" aria-labelledby="tab-strava" hidden>
-    <section class="panel" id="strava">
-      <h2>Ảnh buổi chạy</h2>
-      <p class="hint">Hai loại ảnh: <strong>ảnh Strava</strong> để lấy số liệu quãng đường, pace, thời gian; và <strong>ảnh chạy</strong> là ảnh bạn chụp trên đường, chỉ cần chú thích. Ảnh có ngày trùng một buổi trong giáo án sẽ tự gắn vào buổi đó. Mọi thứ lưu trong trình duyệt này, không gửi đi đâu.</p>
-      <p class="hint">Điền số liệu rồi bấm <strong>Lưu</strong>, thẻ sẽ thu gọn lại ngay. Muốn sửa sau đó thì sang tab <strong>Lịch tập</strong>, bấm vào ngày tương ứng trong lịch tháng.</p>
-      <div class="sv-upload">
-        <label class="fld sv-cat"><span>Ảnh sắp thêm là</span>
-          <select id="sv-cat">
-            <option value="strava">Ảnh Strava (có số liệu)</option>
-            <option value="photo">Ảnh chạy (chỉ ảnh)</option>
-          </select>
-        </label>
-        <label class="drop" id="sv-drop" for="sv-file"><strong>Chọn ảnh hoặc kéo thả vào đây</strong><span>PNG hoặc JPG, chọn được nhiều ảnh cùng lúc</span><input class="sr" type="file" id="sv-file" accept="image/*" multiple></label>
-      </div>
-      <div class="panel-actions"><span id="sv-sum" class="hint"></span><button type="button" class="lnk" id="sv-read-all" hidden>Đọc số liệu của các ảnh còn trống bằng Claude</button></div>
-      <p class="hint" id="sv-storage"></p>
-      <p class="hint" id="sv-note"></p>
-      <div class="lg-list" id="sv-list"></div>
     </section>
   </div>
 
@@ -129,6 +88,7 @@
 <div class="toast-wrap" id="toasts" aria-live="polite"></div>
 
 <script src="js/core.js"></script>
+<script src="js/nav.js"></script>
 <script src="js/templates.js"></script>
 <script src="js/blocks.js"></script>
 <script src="js/races.js"></script>

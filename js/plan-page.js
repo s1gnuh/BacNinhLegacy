@@ -1,0 +1,299 @@
+// Điều khiển plan.html — trang Lịch tập toàn cục. Gộp buổi tập của mọi
+// giáo án đang theo (hoặc lọc về một giáo án), hiện lịch tháng, chi tiết
+// từng ngày và lịch tuần, đánh dấu buổi đã chạy ngay tại đây.
+(function () {
+  'use strict';
+  var C = window.Core, B = window.Blocks, R = window.Races, RL = window.RunLog;
+  var el = function (id) { return document.getElementById(id); };
+  var on = function (id, ev, fn) { var n = el(id); if (n) n.addEventListener(ev, fn); };
+  var MONTHS = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+                'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+  var SEP = '::';
+
+  var blocks = [], runs = [], sel = 'all', calMonth = null, calSel = '';
+
+  /* ================= truy vấn ================= */
+  function raceName(b) {
+    var race = R.get(b.raceId);
+    return race ? race.name : 'Giáo án chưa gắn giải';
+  }
+  function selected() {
+    return sel === 'all' ? blocks : blocks.filter(function (b) { return b.id === sel; });
+  }
+  function singleBlock() {
+    var s = selected();
+    return s.length === 1 ? s[0] : null;
+  }
+  // Mọi buổi tập (trừ ngày nghỉ) của các giáo án đang xem, sắp theo ngày.
+  function entries() {
+    var out = [];
+    selected().forEach(function (b) {
+      B.sessionsOf(b).list.forEach(function (x) {
+        if (x.s.type === 'rest') return;
+        out.push({ b: b, x: x });
+      });
+    });
+    out.sort(function (p, q) { return p.x.date - q.x.date || p.x.si - q.x.si; });
+    return out;
+  }
+  function byDate() {
+    var m = {};
+    entries().forEach(function (e) { var k = C.iso(e.x.date); (m[k] = m[k] || []).push(e); });
+    return m;
+  }
+  function photosOn(key) {
+    return runs.filter(function (r) { return r.date === key; });
+  }
+  function bounds() {
+    var list = entries();
+    if (!list.length) return null;
+    return { first: list[0].x.date, last: list[list.length - 1].x.date };
+  }
+  function monthStart(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+  function sameMonth(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth(); }
+
+  /* ================= ô chọn giáo án ================= */
+  function renderPick() {
+    var pick = el('p-pick');
+    var opts = [];
+    if (blocks.length > 1) opts.push('<option value="all"' + (sel === 'all' ? ' selected' : '') + '>Tất cả giáo án (' + blocks.length + ')</option>');
+    blocks.forEach(function (b) {
+      opts.push('<option value="' + b.id + '"' + (sel === b.id ? ' selected' : '') + '>'
+        + C.esc(raceName(b)) + (B.isActive(b) ? ' · đang chạy' : '') + '</option>');
+    });
+    pick.innerHTML = opts.join('');
+    el('p-pick-wrap').hidden = blocks.length < 2 && !singleBlock();
+
+    var one = singleBlock(), txt = '';
+    if (one) {
+      var st = B.stats(one), race = R.get(one.raceId);
+      txt = st.n + '/' + st.total + ' buổi đã chạy · ' + C.fmtKm(st.km) + ' km'
+        + (race ? ' · thi ngày ' + C.fmt(C.fromIso(race.date)) + '/' + C.fromIso(race.date).getFullYear() : '');
+    } else {
+      var n = 0, tot = 0;
+      blocks.forEach(function (b) { var s = B.stats(b); n += s.n; tot += s.total; });
+      txt = blocks.length + ' giáo án · ' + n + '/' + tot + ' buổi đã chạy';
+    }
+    el('p-sum').textContent = txt;
+  }
+
+  /* ================= lịch tháng ================= */
+  function renderCal() {
+    var box = el('p-cal');
+    if (!box) return;
+    var b = bounds(), t0 = C.today0();
+    if (!calMonth) {
+      calMonth = b && t0 >= monthStart(b.first) && t0 <= b.last ? monthStart(t0) : monthStart(b ? b.first : t0);
+    }
+    el('p-cal-title').textContent = MONTHS[calMonth.getMonth()] + '/' + calMonth.getFullYear();
+    if (b) {
+      el('p-prev').disabled = calMonth <= monthStart(b.first);
+      el('p-next').disabled = calMonth >= monthStart(b.last);
+    }
+    var map = byDate();
+    var offset = (calMonth.getDay() + 6) % 7;
+    var cells = '';
+    for (var i = 0; i < 42; i++) {
+      var d = new Date(calMonth.getFullYear(), calMonth.getMonth(), 1 - offset + i);
+      var key = C.iso(d), list = map[key] || [];
+      var cls = ['cday'];
+      if (!sameMonth(d, calMonth)) cls.push('out');
+      if (key === C.iso(t0)) cls.push('today');
+      if (key === calSel) cls.push('sel');
+      if (list.length && list.every(function (e) { return !!e.b.done[e.x.id]; })) cls.push('done');
+      var dots = list.slice(0, 3).map(function (e) { return '<i class="cd-dot t-' + e.x.s.type + '"></i>'; }).join('');
+      var names = list.map(function (e) { return e.x.s.title; }).join(', ');
+      cells += '<button type="button" class="' + cls.join(' ') + '" data-day="' + key + '"'
+        + ' aria-label="' + C.fmt(d) + (names ? ', ' + C.esc(names) : ', không có buổi chạy') + '">'
+        + '<span class="cd-num num">' + d.getDate() + '</span>'
+        + (dots ? '<span class="cd-dots">' + dots + '</span>' : '')
+        + (photosOn(key).length ? '<i class="cd-pic"></i>' : '')
+        + '</button>';
+    }
+    box.innerHTML = cells;
+  }
+
+  /* ================= chi tiết một ngày ================= */
+  function renderDay() {
+    var box = el('p-day');
+    if (!box) return;
+    if (!calSel) { box.innerHTML = '<p class="hint">Bấm vào một ngày trong lịch để xem buổi tập và ảnh của ngày đó.</p>'; return; }
+    var d = C.fromIso(calSel);
+    var list = byDate()[calSel] || [];
+    var pics = photosOn(calSel);
+    var html = '<div class="cdh"><strong>' + C.WD[(d.getDay() + 6) % 7] + ', ' + C.fmt(d) + '/' + d.getFullYear() + '</strong></div>';
+
+    if (!list.length) {
+      html += '<p class="hint">Không có buổi nào trong giáo án vào ngày này.</p>';
+    } else {
+      html += list.map(function (e) {
+        var dn = !!e.b.done[e.x.id];
+        var multi = sel === 'all' && blocks.length > 1;
+        return '<div class="cdb">'
+          + '<input type="checkbox" data-done="' + e.b.id + SEP + e.x.id + '"' + (dn ? ' checked' : '')
+          + ' aria-label="Đã chạy ' + C.esc(e.x.s.title) + '">'
+          + '<span class="chip t-' + e.x.s.type + '">' + C.LABEL[e.x.s.type] + '</span>'
+          + '<span class="cdt">' + C.esc(e.x.s.title) + '</span>'
+          + (multi ? '<span class="hint">' + C.esc(raceName(e.b)) + '</span>' : '')
+          + '<span class="kmv num">' + C.fmtKm(e.x.s.km) + ' km</span>'
+          + '</div>'
+          + (e.x.s.d ? '<p class="cdn">' + C.esc(e.x.s.d) + '</p>' : '');
+      }).join('');
+    }
+
+    if (pics.length) {
+      html += '<div class="cal-cards">' + pics.map(function (l) {
+        var bits = [];
+        if (l.km) bits.push(l.km + ' km');
+        if (l.time) bits.push(l.time);
+        if (l.pace) bits.push(l.pace + '/km');
+        return '<article class="lg lg-mini' + (l.cat === 'photo' ? ' photo' : '') + '">'
+          + '<div class="lg-thumb"><img src="' + (l.url || '') + '" loading="lazy" alt=""></div>'
+          + '<div class="lg-mini-body">'
+          + '<div class="lg-mini-top">' + (l.cat === 'photo' ? 'Ảnh chạy' : 'Strava') + '</div>'
+          + '<div class="lg-mini-stats">' + (bits.length ? bits.join(' · ') : '—') + '</div>'
+          + (l.note ? '<div class="hint">' + C.esc(l.note) + '</div>' : '')
+          + '</div></article>';
+      }).join('') + '</div>';
+    }
+    html += '<a class="btn-sm" href="log.html">Thêm ảnh hoặc nhật ký cho ngày này</a>';
+    box.innerHTML = html;
+  }
+
+  /* ================= lịch tuần (chỉ khi chọn 1 giáo án) ================= */
+  function renderWeeks() {
+    var wrap = el('p-weeks-wrap'), box = el('p-weeks');
+    var one = singleBlock();
+    if (!one) { wrap.hidden = true; return; }
+    var info = B.sessionsOf(one), tpl = info.tpl;
+    if (!tpl) { wrap.hidden = true; return; }
+    wrap.hidden = false;
+    var t0 = C.today0(), html = '';
+    for (var wi = 0; wi < tpl.weeks.length; wi++) {
+      var start = B.dayOf(one, wi, 0), end = B.dayOf(one, wi, 6);
+      var cur = t0 >= start && t0 <= end;
+      var items = info.list.filter(function (x) { return x.wi === wi; });
+      var full = B.weekComplete(one, wi);
+      var tot = 0, rows = '';
+      items.forEach(function (x) {
+        var dn = !!one.done[x.id];
+        tot += Number(x.s.km) || 0;
+        rows += '<div class="row' + (dn ? ' done' : '') + '">'
+          + (x.s.type === 'rest'
+              ? '<span class="spacer"></span>'
+              : '<input type="checkbox" data-done="' + one.id + SEP + x.id + '"' + (dn ? ' checked' : '')
+                + ' aria-label="Đã chạy ' + C.esc(x.s.title) + '">')
+          + '<div class="day"><b>' + C.WD[(x.date.getDay() + 6) % 7] + '</b><span class="num">' + C.fmt(x.date) + '</span></div>'
+          + '<div class="what"><strong>' + C.esc(x.s.title) + '</strong>'
+          + (x.s.d ? '<p>' + C.esc(x.s.d) + '</p>' : '')
+          + '<details class="note-box"><summary>Ghi chú</summary>'
+          + '<textarea class="note-ta" data-note="' + one.id + SEP + x.id + '" rows="2">' + C.esc(one.notes[x.id] || '') + '</textarea>'
+          + '</details></div>'
+          + '<div class="kmv num">' + (x.s.km ? C.fmtKm(x.s.km) + ' km' : '—') + '</div>'
+          + '</div>';
+      });
+      var wk = tpl.weeks[wi];
+      html += '<article class="week' + (cur ? ' current' : '') + (full ? ' full' : '') + '" data-wi="' + wi + '">'
+        + '<div class="wk-head"><h3>Tuần ' + (wi + 1) + '</h3>'
+        + '<span class="dates num">' + C.fmt(start) + ' – ' + C.fmt(end) + '</span>'
+        + '<span class="sp"></span>'
+        + '<span class="km num">' + C.fmtKm(tot) + ' km</span></div>'
+        + '<div class="wk-phase">'
+        + (wk.ph ? '<span class="chip t-' + (wk.race ? 'race' : 'easy') + '">' + C.esc(wk.ph) + '</span>' : '')
+        + (cur ? '<span class="chip tag-now">Tuần này</span>' : '')
+        + (full ? '<span class="chip t-easy chip-full">Đủ tuần</span>' : '')
+        + '</div>'
+        + rows
+        + (wk.nt ? '<div class="wk-note">' + C.esc(wk.nt) + '</div>' : '')
+        + '</article>';
+    }
+    box.innerHTML = html;
+  }
+
+  /* ================= ăn mừng ================= */
+  function celebrate(b, sid, anchor) {
+    var x = B.findSession(b, sid);
+    if (!x) return;
+    var full = B.weekComplete(b, x.wi);
+    var tier = x.s.type === 'race' ? 'race' : full ? 'week' : x.s.type === 'long' ? 'long'
+             : x.s.type === 'quality' ? 'quality' : 'easy';
+    C.FX.party(tier, anchor);
+    var st = B.stats(b);
+    C.toast(full ? 'Đủ tuần ' + (x.wi + 1) + '!' : 'Xong buổi này',
+            st.n + '/' + st.total + ' buổi · ' + C.fmtKm(st.km) + ' km');
+  }
+
+  /* ================= render + sự kiện ================= */
+  function renderAll() {
+    renderPick();
+    var has = blocks.length > 0;
+    el('p-empty').hidden = has;
+    el('p-cal-wrap').hidden = !has;
+    if (!has) { el('p-weeks-wrap').hidden = true; return; }
+    renderCal(); renderDay(); renderWeeks();
+  }
+
+  function markDone(key, checked, anchor) {
+    var parts = key.split(SEP);
+    var b = B.get(parts[0]);
+    if (!b) return;
+    B.setDone(b, parts[1], checked);
+    // đồng bộ lại bản trong mảng để render dùng dữ liệu mới
+    for (var i = 0; i < blocks.length; i++) if (blocks[i].id === b.id) blocks[i] = b;
+    if (checked) celebrate(b, parts[1], anchor);
+    renderAll();
+  }
+
+  function bind() {
+    on('p-pick', 'change', function (e) {
+      sel = e.target.value; calMonth = null; calSel = '';
+      renderAll();
+    });
+    on('p-prev', 'click', function () {
+      calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1); renderCal();
+    });
+    on('p-next', 'click', function () {
+      calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1); renderCal();
+    });
+    on('p-cal', 'click', function (e) {
+      var btn = e.target.closest ? e.target.closest('[data-day]') : null;
+      if (!btn) return;
+      var key = btn.getAttribute('data-day');
+      calSel = calSel === key ? '' : key;
+      renderCal(); renderDay();
+    });
+    on('p-jump', 'click', function () {
+      var t = document.querySelector('#p-weeks .week.current') || document.querySelector('#p-weeks .week');
+      if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    // đánh dấu đã chạy — dùng chung cho cả chi tiết ngày và lịch tuần
+    document.addEventListener('change', function (e) {
+      var node = e.target;
+      if (!node) return;
+      var dk = node.getAttribute && node.getAttribute('data-done');
+      if (dk) { markDone(dk, node.checked, node); return; }
+      var nk = node.getAttribute && node.getAttribute('data-note');
+      if (nk) {
+        var parts = nk.split(SEP), b = B.get(parts[0]);
+        if (b) { B.setNote(b, parts[1], node.value); }
+      }
+    });
+  }
+
+  function boot() {
+    var d = new Date();
+    el('p-eyebrow').textContent = C.WD[(d.getDay() + 6) % 7] + ', ' + C.fmt(d) + '/' + d.getFullYear();
+    blocks = B.list();
+    // mặc định: nếu đang có đúng một giáo án chạy thì mở sẵn nó
+    var active = blocks.filter(B.isActive);
+    sel = blocks.length === 1 ? blocks[0].id : (active.length === 1 ? active[0].id : 'all');
+    calSel = C.iso(C.today0());
+    bind();
+    renderAll();
+    RL.loadRuns().then(function (all) { runs = all; renderCal(); renderDay(); });
+    C.registerSW();
+  }
+
+  boot();
+})();
