@@ -12,6 +12,12 @@ window.Core = (function () {
   function today0() { var n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
   function addDays(d, n) { var r = new Date(d); r.setDate(r.getDate() + n); return r; }
   function fmtKm(x) { return (Math.round((Number(x) || 0) * 10) / 10).toString().replace('.', ','); }
+  // Số với tối đa `d` chữ số thập phân (mặc định 2), cắt số 0 vô nghĩa ở cuối.
+  function fmtNum(x, d) {
+    var s = (Number(x) || 0).toFixed(d == null ? 2 : d);
+    if (s.indexOf('.') >= 0) s = s.replace(/0+$/, '').replace(/\.$/, '');
+    return s.replace('.', ',');
+  }
   function fmtDuration(secs) {
     var h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
     if (h === 0) return m + ' phút';
@@ -209,7 +215,7 @@ window.Core = (function () {
   return {
     WD: WD, LABEL: LABEL, TRAINING_RULES: TRAINING_RULES,
     pad: pad, iso: iso, fromIso: fromIso, fmt: fmt, today0: today0, addDays: addDays,
-    fmtKm: fmtKm, fmtDuration: fmtDuration, esc: esc, uid: uid, qs: qs,
+    fmtKm: fmtKm, fmtNum: fmtNum, fmtDuration: fmtDuration, esc: esc, uid: uid, qs: qs,
     store: store, toast: toast, FX: FX, registerSW: registerSW
   };
 })();

@@ -97,7 +97,7 @@
       var p = G.progress(g, runs);
       var label = g.type === 'pr_target'
         ? G.TYPE_LABEL[g.type] + ' ' + (g.distanceKm) + 'K: ' + RL.formatTime(g.target) + (p.label ? ' (hiện ' + p.label + ')' : '')
-        : G.TYPE_LABEL[g.type] + ': ' + p.current + '/' + g.target + (g.type.indexOf('km') >= 0 ? ' km' : ' buổi');
+        : G.TYPE_LABEL[g.type] + ': ' + C.fmtNum(p.current) + '/' + C.fmtNum(g.target) + (g.type.indexOf('km') >= 0 ? ' km' : ' buổi');
       return '<div class="goal-row">' +
         '<div class="goal-info"><strong>' + C.esc(label) + '</strong>' +
         '<div class="bar"><i style="width:' + p.pct + '%"></i></div></div>' +
