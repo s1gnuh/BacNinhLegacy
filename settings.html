@@ -37,6 +37,18 @@
     <p class="hint" id="nt-status"></p>
   </section>
 
+  <section class="panel" id="backup">
+    <h2>Sao lưu &amp; khôi phục</h2>
+    <p class="hint">Gói toàn bộ dữ liệu vào một file: giải, giáo án, buổi đã đánh dấu, ghi chú, mục tiêu và nhật ký kèm ảnh. Giữ file này lại trước khi xoá dữ liệu trình duyệt, cài lại app hay đổi sang máy khác — lúc cần chỉ việc khôi phục, không phải điền lại từ đầu.</p>
+    <div class="panel-actions">
+      <button type="button" class="btn-sm primary" id="bk-export">Xuất dữ liệu</button>
+      <button type="button" class="btn-sm" id="bk-import">Khôi phục từ file</button>
+      <button type="button" class="btn-sm" id="bk-confirm" hidden>Xác nhận khôi phục</button>
+    </div>
+    <input type="file" class="sr" id="bk-file" accept="application/json,.json">
+    <p class="hint" id="bk-status"></p>
+  </section>
+
   <p class="foot">Dữ liệu được lưu trong trình duyệt này. Bật nhắc nhở thì danh sách buổi tập hôm nay (không gồm ảnh) được gửi lên máy chủ để đẩy thông báo.</p>
 </div>
 
@@ -48,7 +60,9 @@
 <script src="js/nav.js"></script>
 <script src="js/templates.js"></script>
 <script src="js/blocks.js"></script>
+<script src="js/runlog.js"></script>
 <script src="js/notify.js"></script>
+<script src="js/backup.js"></script>
 <script src="js/settings-page.js"></script>
 </body>
 </html>
