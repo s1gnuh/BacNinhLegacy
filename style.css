@@ -59,7 +59,7 @@ p { margin: 0; }
 .back-link:hover { color: var(--fg); text-decoration: underline; }
 
 /* menu bar dùng chung — cố định ở đáy màn hình, icon + nhãn kiểu app di động */
-.navbar { position: fixed; left: 0; right: 0; bottom: 0; max-width: 760px; margin: 0 auto; z-index: 50; display: flex; gap: 2px; padding: 7px 6px calc(7px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -6px 24px rgba(0,0,0,.07); }
+.navbar { position: fixed; left: 0; right: 0; bottom: 0; max-width: 760px; margin: 0 auto; z-index: 50; display: flex; gap: 2px; padding: 7px 6px calc(7px + env(safe-area-inset-bottom, 0px)); min-height: calc(64px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -6px 24px rgba(0,0,0,.07); }
 .navbar-item { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 4px 2px; border-radius: 10px; color: var(--muted); text-decoration: none; transition: color .18s, transform .14s; }
 .navbar-item:hover { color: var(--fg); }
 .navbar-item:active { transform: scale(.94); }
