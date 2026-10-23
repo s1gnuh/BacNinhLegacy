@@ -226,10 +226,8 @@
     race = R.get(raceId);
     if (!race) {
       document.querySelector('.wrap').innerHTML =
-        '<nav class="navbar" id="navbar" aria-label="Menu chính"></nav>' +
         '<section class="panel"><h2>Không tìm thấy giải này</h2>' +
         '<p class="hint">Có thể đường dẫn sai hoặc giải đã bị xoá.</p></section>';
-      window.Nav.render();
       return;
     }
     block = race.blockId ? B.get(race.blockId) : null;

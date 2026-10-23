@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Nhật ký chạy</title>
-<meta name="description" content="Bảng tổng hợp cá nhân: km, streak, PR, mục tiêu và các giải đấu đang theo đuổi">
+<meta name="description" content="Buổi chạy tiếp theo, tóm tắt nhanh và các giải đấu đang theo đuổi">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0A726D">
@@ -21,50 +21,22 @@
 <canvas id="fx" aria-hidden="true"></canvas>
 
 <div class="wrap">
-  <nav class="navbar" id="navbar" aria-label="Menu chính"></nav>
-
   <header class="head">
     <div class="eyebrow" id="dash-date"></div>
-    <h1>Nhật ký chạy</h1>
+    <h1 id="dash-greet">Chào buổi sáng</h1>
   </header>
 
   <section class="next" id="next" aria-live="polite"></section>
+
+  <a class="panel qstat-link" href="stats.html">
+    <div class="qstat-row" id="qstat-row"></div>
+    <span class="qstat-cta">Xem thống kê đầy đủ ›</span>
+  </a>
 
   <section class="panel quote-card">
     <div class="quote-head"><span class="eyebrow">Lời nhắc</span><button type="button" class="lnk" id="quote-next">Câu khác</button></div>
     <blockquote id="quote-q"></blockquote>
     <cite id="quote-a"></cite>
-  </section>
-
-  <section class="stat-grid" id="stat-grid"></section>
-
-  <section>
-    <h2 class="sec-title">Thành tích tốt nhất</h2>
-    <div class="pr-grid" id="pr-grid"></div>
-  </section>
-
-  <section class="panel">
-    <div class="sec-head"><h2>Mục tiêu</h2><button type="button" class="btn-sm" id="goal-add-toggle">+ Thêm mục tiêu</button></div>
-    <form id="goal-form" class="goal-form" hidden>
-      <label class="fld"><span>Loại mục tiêu</span>
-        <select id="goal-type">
-          <option value="weekly_km">Km mỗi tuần</option>
-          <option value="weekly_sessions">Số buổi mỗi tuần</option>
-          <option value="monthly_km">Km mỗi tháng</option>
-          <option value="pr_target">Mục tiêu thành tích (giây)</option>
-        </select>
-      </label>
-      <label class="fld"><span id="goal-target-label">Mục tiêu</span><input type="number" id="goal-target" min="0" step="any" required></label>
-      <label class="fld" id="goal-dist-wrap" hidden><span>Cự ly (km)</span><input type="number" id="goal-dist" min="0" step="any" value="10"></label>
-      <button type="submit" class="btn-sm primary">Lưu mục tiêu</button>
-    </form>
-    <div id="goal-list"></div>
-  </section>
-
-  <section class="panel" id="analysis">
-    <h2>Phân tích xu hướng</h2>
-    <div class="chart" id="trend-chart" role="img" aria-label="Biểu đồ km 8 tuần gần nhất"></div>
-    <div id="analysis-notes"></div>
   </section>
 
   <section>
@@ -88,20 +60,10 @@
     <div class="race-list" id="race-list"></div>
   </section>
 
-  <section class="panel" id="notify">
-    <h2>Nhắc chạy trên điện thoại</h2>
-    <p class="hint">Bật để nhận thông báo vào ngày có buổi chạy mà bạn chưa đánh dấu xong, gộp từ mọi giải đang có giáo án active. Cần thêm trang này vào màn hình chính trước, iPhone bắt buộc phải làm vậy mới cho gửi thông báo.</p>
-    <div class="nt-row">
-      <button type="button" class="btn-sm" id="nt-toggle">Bật nhắc nhở</button>
-      <label class="fld nt-time"><span>Giờ nhắc khi app mở</span><input type="time" id="nt-time" value="06:30"></label>
-      <button type="button" class="btn-sm" id="nt-test" hidden>Gửi thử</button>
-      <button type="button" class="btn-sm" id="nt-health">Kiểm tra máy chủ</button>
-    </div>
-    <p class="hint" id="nt-status"></p>
-  </section>
-
-  <p class="foot">Dữ liệu được lưu trong trình duyệt này. Bật nhắc nhở thì danh sách buổi tập hôm nay (không gồm ảnh) được gửi lên máy chủ để đẩy thông báo.</p>
+  <p class="foot">Dữ liệu được lưu trong trình duyệt này.</p>
 </div>
+
+<nav class="navbar" id="navbar" aria-label="Menu chính"></nav>
 
 <div class="toast-wrap" id="toasts" aria-live="polite"></div>
 
@@ -111,7 +73,6 @@
 <script src="js/blocks.js"></script>
 <script src="js/races.js"></script>
 <script src="js/runlog.js"></script>
-<script src="js/goals.js"></script>
 <script src="js/migrate.js"></script>
 <script src="js/notify.js"></script>
 <script src="quotes.js"></script>
