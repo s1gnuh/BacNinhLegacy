@@ -6,7 +6,7 @@
 <title>Lịch tập – Nhật ký chạy</title>
 <meta name="description" content="Lịch tập gộp từ mọi giáo án đang theo: lịch tháng, lịch tuần và đánh dấu buổi đã chạy">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0A726D">
+<meta name="theme-color" content="#0E2551">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Nhật ký chạy">
@@ -21,8 +21,16 @@
 
 <div class="wrap">
   <header class="head">
-    <div class="eyebrow" id="p-eyebrow"></div>
-    <h1>Lịch tập</h1>
+    <div class="app-head">
+      <picture class="app-logo">
+        <source srcset="icons/logo-dark.png" media="(prefers-color-scheme: dark)">
+        <img src="icons/logo.png" width="272" height="74" alt="RUNN">
+      </picture>
+      <div class="app-head-text">
+        <h1>Lịch tập</h1>
+        <div class="eyebrow" id="p-eyebrow"></div>
+      </div>
+    </div>
   </header>
 
   <section class="panel" id="p-pick-wrap">

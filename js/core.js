@@ -58,7 +58,7 @@ window.Core = (function () {
   /* ================= pháo hoa ăn mừng (canvas) ================= */
   var FX = (function () {
     var cvs = null, ctx = null, parts = [], raf = 0, w = 0, h = 0, dpr = 1, booted = false;
-    var COLORS = ['#46C9C1', '#FF9460', '#9EABFF', '#FFD166', '#FF5D8F', '#FFFFFF'];
+    var COLORS = ['#1366D6', '#FF7C1D', '#5B9DFF', '#FFC93C', '#FF5D8F', '#FFFFFF'];
     var TIER = {
       easy:      { spark: 26, conf: 16, ring: 1, rocket: 0, power: 4.2 },
       quality:   { spark: 38, conf: 26, ring: 1, rocket: 1, power: 5.0 },

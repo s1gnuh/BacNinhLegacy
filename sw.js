@@ -1,6 +1,6 @@
 // Service worker: app-shell cache cho cả trang chủ (index.html) lẫn trang
 // giải (race.html). Bump CACHE khi các file dưới đổi đáng kể.
-var CACHE = 'bn27-cache-v12';
+var CACHE = 'bn27-cache-v13';
 var STATE = 'bn27-state';
 var CORE = [
   './',
@@ -32,7 +32,9 @@ var CORE = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
-  './icons/favicon.png'
+  './icons/favicon.png',
+  './icons/logo.png',
+  './icons/logo-dark.png'
 ];
 
 self.addEventListener('install', function (e) {

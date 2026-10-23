@@ -7,7 +7,7 @@
 <meta name="description" content="Buổi chạy tiếp theo, tóm tắt nhanh và các giải đấu đang theo đuổi">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0A726D">
+<meta name="theme-color" content="#0E2551">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Nhật ký chạy">
@@ -22,8 +22,16 @@
 
 <div class="wrap">
   <header class="head">
-    <div class="eyebrow" id="dash-date"></div>
-    <h1 id="dash-greet">Chào buổi sáng</h1>
+    <div class="app-head">
+      <picture class="app-logo">
+        <source srcset="icons/logo-dark.png" media="(prefers-color-scheme: dark)">
+        <img src="icons/logo.png" width="272" height="74" alt="RUNN">
+      </picture>
+      <div class="app-head-text">
+        <h1 id="dash-greet">Chào buổi sáng</h1>
+        <div class="eyebrow" id="dash-date"></div>
+      </div>
+    </div>
   </header>
 
   <section class="next" id="next" aria-live="polite"></section>
