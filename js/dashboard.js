@@ -252,7 +252,22 @@
     });
   }
 
+  // Màn hình chờ do đoạn script trong <head> bật lên (chỉ khi mở app từ đầu);
+  // ở đây chỉ lo gỡ nó xuống sau khi chạy xong hiệu ứng.
+  function hideSplash() {
+    var root = document.documentElement, sp = el('splash');
+    if (!sp || !root.classList.contains('splash-on')) return;
+    setTimeout(function () {
+      sp.classList.add('out');
+      setTimeout(function () {
+        root.classList.remove('splash-on');
+        if (sp.parentNode) sp.parentNode.removeChild(sp);
+      }, 430);
+    }, 3500);
+  }
+
   function boot() {
+    hideSplash();
     renderDate(); renderQuote();
     renderTemplateOptions();
     bindEvents();

@@ -11,7 +11,7 @@ window.Backup = (function (Core, RunLog) {
   // localStorage của cùng tên miền.
   var LOCAL_KEYS = [
     'app-races', 'app-blocks', 'app-templates', 'app-goals',
-    'bn27-notify', 'app-migrated-v2',
+    'bn27-notify', 'app-theme', 'app-migrated-v2',
     'bn27-done', 'bn27-notes', 'bn27-sched', 'bn27-mode'
   ];
 

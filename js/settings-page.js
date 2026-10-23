@@ -26,6 +26,28 @@
     var f = el('bk-file'); if (f) f.value = '';
   }
 
+  /* ---------- giao diện sáng/tối ---------- */
+  // Không có thuộc tính data-theme nghĩa là để trình duyệt tự quyết theo cài
+  // đặt máy; đặt "light"/"dark" thì CSS khoá cứng theo lựa chọn đó.
+  function currentTheme() {
+    var t = C.store.get('app-theme');
+    return (t === 'light' || t === 'dark') ? t : 'auto';
+  }
+  function renderTheme() {
+    var seg = el('th-seg');
+    if (!seg) return;
+    var cur = currentTheme();
+    [].forEach.call(seg.querySelectorAll('[data-theme-set]'), function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-theme-set') === cur ? 'true' : 'false');
+    });
+  }
+  function setTheme(t) {
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    else { document.documentElement.removeAttribute('data-theme'); t = 'auto'; }
+    C.store.set('app-theme', t);
+    renderTheme();
+  }
+
   /* ---------- dung lượng ---------- */
   // Ảnh chạy nằm trong IndexedDB nên cộng thẳng kích thước từng blob cho
   // chính xác; phần còn lại (vỏ app, font, bộ nhớ đệm) suy ra từ tổng mà
@@ -158,7 +180,14 @@
     on('nt-test', 'click', function () { window.Notify.test(); });
     on('nt-health', 'click', function () { window.Notify.health(); });
 
+    renderTheme();
     renderStorage();
+
+    var seg = el('th-seg');
+    if (seg) seg.addEventListener('click', function (e) {
+      var b = e.target && e.target.closest ? e.target.closest('[data-theme-set]') : null;
+      if (b) setTheme(b.getAttribute('data-theme-set'));
+    });
 
     on('bk-export', 'click', doExport);
     on('bk-import', 'click', function () { clearPending(); status(''); el('bk-file').click(); });

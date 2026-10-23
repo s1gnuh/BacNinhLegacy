@@ -15,9 +15,24 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<script>
+// Đặt giao diện và quyết định màn hình chờ TRƯỚC khi vẽ, nếu không sẽ nháy.
+// sessionStorage trống nghĩa là app vừa được mở lại từ đầu (đã thoát hẳn khỏi
+// đa nhiệm) — chuyển qua lại giữa các tab thì không hiện nữa.
+try { var t = localStorage.getItem('app-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+try { if (!sessionStorage.getItem('runn-splash')) { document.documentElement.classList.add('splash-on'); sessionStorage.setItem('runn-splash', '1'); } } catch (e) {}
+</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<div class="splash" id="splash">
+  <div class="splash-card">
+    <img class="splash-logo" src="icons/logo-dark.png" width="816" height="222" alt="RUNN">
+    <p class="splash-slogan">run your own life</p>
+  </div>
+  <div class="splash-bar"><i></i></div>
+</div>
 
 <canvas id="fx" aria-hidden="true"></canvas>
 

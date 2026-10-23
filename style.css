@@ -245,6 +245,64 @@ ul.rules { margin: 0; padding-left: 18px; display: flex; flex-direction: column;
 .split .b { font-family: var(--font-display); font-size: 24px; font-weight: 600; }
 .foot { font-size: 12.5px; color: var(--muted); }
 
+/* màn hình chờ — chỉ hiện khi mở app từ đầu, nền navy thương hiệu cho cả hai
+   chế độ sáng/tối để nhận diện luôn nhất quán */
+.splash { display: none; }
+.splash-on body { overflow: hidden; }
+.splash-on .splash {
+  display: flex; position: fixed; inset: 0; z-index: 200;
+  flex-direction: column; align-items: center; justify-content: center;
+  padding: 32px; background: #0E2551;
+  background-image: radial-gradient(118% 78% at 50% 16%, #1D4282 0%, #0E2551 56%, #081732 100%);
+}
+.splash-card { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.splash-logo { width: min(62vw, 268px); height: auto; animation: sp-logo .8s cubic-bezier(.2,.9,.3,1.1) both; }
+.splash-slogan {
+  font-family: var(--font-display); font-weight: 600; font-size: clamp(14px, 4.2vw, 19px);
+  letter-spacing: .3em; text-transform: uppercase; color: #9DB5E0; margin: 0;
+  animation: sp-slogan .7s cubic-bezier(.2,.9,.3,1) .32s both;
+}
+.splash-bar {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+  width: min(150px, 38vw); height: 3px; border-radius: 2px;
+  background: rgba(255,255,255,.15); overflow: hidden;
+}
+.splash-bar i { display: block; height: 100%; width: 0; border-radius: 2px; background: linear-gradient(90deg, #1366D6, #FF7C1D); animation: sp-bar 3.5s cubic-bezier(.35,.55,.3,1) both; }
+.splash.out { animation: sp-out .42s ease forwards; }
+@keyframes sp-logo { from { opacity: 0; transform: translateY(12px) scale(.93); } to { opacity: 1; transform: none; } }
+@keyframes sp-slogan { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
+@keyframes sp-bar { from { width: 0; } to { width: 100%; } }
+@keyframes sp-out { to { opacity: 0; transform: scale(1.035); } }
+@media (prefers-reduced-motion: reduce) {
+  .splash-logo, .splash-slogan { animation-duration: .01ms; animation-delay: 0s; }
+  .splash-bar i { animation: none; width: 100%; }
+}
+
+/* vòng tiến độ tuần này */
+.ring-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.ring-box { position: relative; width: 128px; height: 128px; flex: 0 0 auto; }
+.ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring-track { fill: none; stroke: var(--line); stroke-width: 11; }
+.ring-fill { fill: none; stroke: url(#ringGrad); stroke-width: 11; stroke-linecap: round; transition: stroke-dashoffset .75s cubic-bezier(.2,.8,.2,1); }
+.ring-g1 { stop-color: var(--brand-1); }
+.ring-g2 { stop-color: var(--brand-2); }
+.ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ring-v { font-family: var(--font-display); font-size: 32px; font-weight: 800; line-height: 1; }
+.ring-l { font-size: 11px; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; }
+.ring-side { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 9px; }
+.ring-stat { display: flex; align-items: baseline; gap: 8px; }
+.ring-stat b { font-family: var(--font-display); font-size: 23px; font-weight: 700; line-height: 1; }
+.ring-stat span { font-size: 13px; color: var(--muted); }
+
+/* chuỗi ngày chạy: 14 ngày gần nhất */
+.dots-row { display: flex; gap: 4px; }
+.sdot { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.sdot i { display: block; width: 100%; max-width: 22px; aspect-ratio: 1; border-radius: 6px; background: var(--line); }
+.sdot.on i { background: linear-gradient(155deg, var(--brand-1), var(--brand-2)); }
+.sdot.today i { outline: 2px solid var(--fg); outline-offset: 2px; }
+.sdot em { font-style: normal; font-size: 9.5px; color: var(--muted); }
+
 /* fireworks canvas */
 #fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 60; }
 
@@ -382,6 +440,16 @@ ul.rules { margin: 0; padding-left: 18px; display: flex; flex-direction: column;
 .clabel { font-size: 11px; color: var(--muted); white-space: nowrap; }
 .cweek.now .clabel { color: var(--fg); font-weight: 600; }
 @media (max-width: 520px) { .chart { height: 140px; } .cval { display: none; } }
+
+/* Cột của biểu đồ xu hướng và km theo tháng tô màu thương hiệu cho nổi bật.
+   Biểu đồ ở trang giải (#chart) vẫn giữ cột nhạt vì ở đó phần tô đậm mới là
+   số km đã chạy. */
+#trend-chart .cbar, #month-chart .cbar {
+  background: linear-gradient(180deg, var(--brand-2), var(--brand-1));
+  box-shadow: 0 2px 9px -3px color-mix(in srgb, var(--brand-1) 55%, transparent);
+}
+/* 6 cột thì vẫn đủ chỗ hiện số km trên điện thoại */
+@media (max-width: 520px) { #month-chart .cval { display: block; } }
 
 /* per-session notes */
 .note-box { margin-top: 2px; }

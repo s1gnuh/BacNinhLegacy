@@ -13,6 +13,7 @@
 <link rel="icon" href="icons/favicon.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<script>try { var t = localStorage.getItem('app-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -24,6 +25,16 @@
     <div class="eyebrow" id="se-eyebrow"></div>
     <h1>Cài đặt</h1>
   </header>
+
+  <section class="panel" id="theme">
+    <h2>Giao diện</h2>
+    <p class="hint">Chọn nền sáng hay tối. "Theo máy" sẽ tự đổi theo cài đặt hiển thị của điện thoại.</p>
+    <div class="seg" id="th-seg" role="group" aria-label="Chế độ giao diện">
+      <button type="button" data-theme-set="light" aria-pressed="false">Sáng</button>
+      <button type="button" data-theme-set="dark" aria-pressed="false">Tối</button>
+      <button type="button" data-theme-set="auto" aria-pressed="true">Theo máy</button>
+    </div>
+  </section>
 
   <section class="panel" id="notify">
     <h2>Nhắc chạy trên điện thoại</h2>

@@ -13,6 +13,89 @@
     el('st-eyebrow').textContent = C.WD[(d.getDay() + 6) % 7] + ', ' + C.fmt(d) + '/' + d.getFullYear();
   }
 
+  /* ================= vòng tiến độ tuần này ================= */
+  // Mốc so sánh ưu tiên mục tiêu km/tuần người dùng đặt; chưa đặt thì lấy
+  // trung bình 8 tuần trước làm chuẩn để vòng vẫn có ý nghĩa.
+  function renderWeekRing() {
+    var box = el('week-ring'), side = el('week-side');
+    if (!box || !side) return;
+    var t0 = C.today0(), wk = RL.thisWeekRange(t0);
+    var km = RL.kmBetween(runs, wk.start, wk.end);
+    var sessions = runs.filter(function (r) {
+      if (r.kind === 'walk' || !r.date) return false;
+      var d = C.fromIso(r.date);
+      return d >= wk.start && d <= wk.end;
+    }).length;
+
+    var goal = G.all().filter(function (g) { return g.type === 'weekly_km' && g.target > 0; })[0];
+    var prev = RL.weeklyKmSeries(runs, 9).slice(0, 8);
+    var avg = prev.reduce(function (a, w) { return a + w.km; }, 0) / (prev.length || 1);
+    var target = goal ? Number(goal.target) : avg;
+    var pct = target > 0 ? Math.min(100, Math.round(km / target * 100)) : 0;
+
+    var R = 52, CIRC = 2 * Math.PI * R;
+    box.innerHTML =
+      '<svg class="ring" viewBox="0 0 120 120" role="img" aria-label="Đã chạy ' + C.fmtKm(km) + ' km tuần này' + (target > 0 ? ', đạt ' + pct + '%' : '') + '">' +
+      '<defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">' +
+      '<stop class="ring-g1" offset="0%"/><stop class="ring-g2" offset="100%"/></linearGradient></defs>' +
+      '<circle class="ring-track" cx="60" cy="60" r="' + R + '"/>' +
+      '<circle class="ring-fill" cx="60" cy="60" r="' + R + '" stroke-dasharray="' + CIRC.toFixed(1) + '"' +
+      ' stroke-dashoffset="' + (CIRC * (1 - pct / 100)).toFixed(1) + '"/>' +
+      '</svg>' +
+      '<div class="ring-center"><div class="ring-v num">' + C.fmtKm(km) + '</div><div class="ring-l">km</div></div>';
+
+    var basis = goal
+      ? 'trên mục tiêu ' + C.fmtNum(goal.target) + ' km/tuần'
+      : (avg > 0 ? 'so với trung bình 8 tuần (' + C.fmtKm(avg) + ' km)' : 'chưa có mốc so sánh — đặt mục tiêu ở dưới');
+    side.innerHTML =
+      '<div class="ring-stat"><b class="num">' + (target > 0 ? pct + '%' : '—') + '</b><span>' + C.esc(basis) + '</span></div>' +
+      '<div class="ring-stat"><b class="num">' + sessions + '</b><span>buổi trong tuần</span></div>' +
+      '<p class="hint num">' + C.fmt(wk.start) + ' – ' + C.fmt(wk.end) + '</p>';
+  }
+
+  /* ================= chuỗi ngày chạy 14 ngày ================= */
+  function renderStreakDots() {
+    var box = el('streak-dots'), sum = el('streak-sum');
+    if (!box) return;
+    var days = {};
+    runs.forEach(function (r) {
+      if (r.kind === 'walk' || !r.date || !(Number(r.km) > 0)) return;
+      days[r.date] = (days[r.date] || 0) + Number(r.km);
+    });
+    var t0 = C.today0(), html = '';
+    for (var i = 13; i >= 0; i--) {
+      var d = C.addDays(t0, -i), key = C.iso(d), on = !!days[key];
+      var label = C.WD[(d.getDay() + 6) % 7].replace('Thứ ', 'T').replace('Chủ nhật', 'CN');
+      html += '<span class="sdot' + (on ? ' on' : '') + (i === 0 ? ' today' : '') + '"'
+        + ' title="' + C.fmt(d) + (on ? ': ' + C.fmtKm(days[key]) + ' km' : ': nghỉ') + '">'
+        + '<i></i><em>' + label + '</em></span>';
+    }
+    box.innerHTML = html;
+    if (sum) sum.textContent = RL.computeStreak(runs) + ' ngày liên tục';
+  }
+
+  /* ================= km theo tháng ================= */
+  function renderMonths() {
+    var box = el('month-chart');
+    if (!box) return;
+    var t0 = C.today0(), out = [];
+    for (var i = 5; i >= 0; i--) {
+      var s = new Date(t0.getFullYear(), t0.getMonth() - i, 1);
+      var e = new Date(s.getFullYear(), s.getMonth() + 1, 0);
+      out.push({ s: s, km: RL.kmBetween(runs, s, e) });
+    }
+    var max = Math.max.apply(null, out.map(function (m) { return m.km; })) || 1;
+    box.innerHTML = out.map(function (m, i) {
+      var h = Math.max(2, Math.round(m.km / max * 100));
+      var now = i === out.length - 1;
+      return '<div class="cweek' + (now ? ' now' : '') + '" style="--i:' + i + '">' +
+        '<span class="cval num">' + C.fmtKm(m.km) + '</span>' +
+        '<div class="cbar" style="--h:' + h + '%" title="Tháng ' + (m.s.getMonth() + 1) + '/' + m.s.getFullYear() + ': ' + C.fmtKm(m.km) + ' km"></div>' +
+        '<span class="clabel num">T' + (m.s.getMonth() + 1) + '</span></div>';
+    }).join('');
+    box.classList.add('in');
+  }
+
   /* ================= thống kê tổng hợp ================= */
   function renderStats() {
     var t0 = C.today0();
@@ -73,6 +156,7 @@
         '<div class="cbar" style="--h:' + h + '%" title="' + C.fmt(w.start) + ' – ' + C.fmt(w.end) + ': ' + C.fmtKm(w.km) + ' km"></div>' +
         '<span class="clabel num">' + (isNow ? 'Nay' : C.fmt(w.start)) + '</span></div>';
     }).join('');
+    el('trend-chart').classList.add('in');
 
     var notes = [];
     var curWeek = series[series.length - 1].km;
@@ -99,7 +183,10 @@
     el('analysis-notes').innerHTML = '<ul class="rules">' + notes.slice(0, 3).map(function (n) { return '<li>' + C.esc(n) + '</li>'; }).join('') + '</ul>';
   }
 
-  function renderAll() { renderStats(); renderPR(); renderAnalysis(); renderGoals(); }
+  function renderAll() {
+    renderWeekRing(); renderStreakDots(); renderStats();
+    renderPR(); renderAnalysis(); renderMonths(); renderGoals();
+  }
 
   function bindEvents() {
     on('goal-add-toggle', 'click', function () { el('goal-form').hidden = !el('goal-form').hidden; });

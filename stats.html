@@ -13,6 +13,7 @@
 <link rel="icon" href="icons/favicon.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<script>try { var t = localStorage.getItem('app-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -25,6 +26,19 @@
     <h1>Thống kê</h1>
   </header>
 
+  <section class="panel" id="week-wrap">
+    <h2>Tuần này</h2>
+    <div class="ring-row">
+      <div class="ring-box" id="week-ring"></div>
+      <div class="ring-side" id="week-side"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="streak-wrap">
+    <div class="sec-head"><h2>Chuỗi ngày chạy</h2><span class="hint" id="streak-sum"></span></div>
+    <div class="dots-row" id="streak-dots"></div>
+  </section>
+
   <section class="stat-grid" id="stat-grid"></section>
 
   <section>
@@ -36,6 +50,11 @@
     <h2>Phân tích xu hướng</h2>
     <div class="chart" id="trend-chart" role="img" aria-label="Biểu đồ km 8 tuần gần nhất"></div>
     <div id="analysis-notes"></div>
+  </section>
+
+  <section class="panel" id="month-wrap">
+    <h2>Km theo tháng</h2>
+    <div class="chart" id="month-chart" role="img" aria-label="Biểu đồ km 6 tháng gần nhất"></div>
   </section>
 
   <section class="panel">
