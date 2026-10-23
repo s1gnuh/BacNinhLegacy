@@ -51,18 +51,17 @@ img{max-width:100%}
 @view-transition {
   navigation: auto;
 }
-::view-transition-group(root) {
-  animation-duration: 190ms;
-  animation-timing-function: cubic-bezier(.22, 1, .36, 1);
+/* Chỉ mờ dần, không phóng/trượt: đổi opacity chạy thẳng trên GPU nên gần như
+   không tốn gì, trong khi transform cả trang buộc máy vẽ lại toàn bộ ảnh —
+   đó là chỗ máy yếu hay khựng. */
+::view-transition-group(root) { animation-duration: 150ms; }
+::view-transition-old(root) { animation: vt-out 90ms linear both; }
+::view-transition-new(root) { animation: vt-in 150ms linear both; }
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 }
-::view-transition-old(root) {
-  animation: vt-out 140ms cubic-bezier(.4, 0, 1, 1) both;
-}
-::view-transition-new(root) {
-  animation: vt-in 190ms cubic-bezier(.22, 1, .36, 1) both;
-}
-@keyframes vt-out { to { opacity: 0; transform: scale(.985); } }
-@keyframes vt-in { from { opacity: 0; transform: scale(1.012); } }
 /* menu bar giữ nguyên vị trí, không crossfade cùng nội dung trang khi chuyển tab */
 .navbar { view-transition-name: app-navbar; contain: layout; }
 ::view-transition-old(app-navbar), ::view-transition-new(app-navbar) { animation: none; mix-blend-mode: normal; }
@@ -102,10 +101,12 @@ p { margin: 0; }
   transform: translateZ(0); -webkit-transform: translateZ(0); will-change: transform;
 }
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  /* bán kính blur vừa phải: hiệu ứng kính vẫn rõ nhưng máy phải tính lại ít
+     hơn hẳn ở mỗi khung hình khi cuộn */
   .navbar {
-    background: color-mix(in srgb, var(--surface) 82%, transparent);
-    backdrop-filter: saturate(180%) blur(18px);
-    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    background: color-mix(in srgb, var(--surface) 84%, transparent);
+    backdrop-filter: saturate(150%) blur(12px);
+    -webkit-backdrop-filter: saturate(150%) blur(12px);
   }
 }
 .navbar-item { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 2px; border-radius: 12px; color: var(--muted); text-decoration: none; transition: color .18s, background .18s, transform .14s; }
@@ -259,7 +260,7 @@ ul.rules { margin: 0; padding-left: 18px; display: flex; flex-direction: column;
 /* tabs */
 .tabs { position: sticky; top: max(0px, env(safe-area-inset-top, 0px)); z-index: 30; display: flex; gap: 4px; padding: 5px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; scrollbar-width: none; }
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-  .tabs { background: color-mix(in srgb, var(--surface) 86%, transparent); backdrop-filter: saturate(180%) blur(14px); -webkit-backdrop-filter: saturate(180%) blur(14px); }
+  .tabs { background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: saturate(150%) blur(10px); -webkit-backdrop-filter: saturate(150%) blur(10px); }
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tabs button { flex: 1 0 auto; white-space: nowrap; font: inherit; font-size: 13.5px; font-weight: 600; padding: 9px 14px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; transition: background .18s, color .18s, transform .12s; }

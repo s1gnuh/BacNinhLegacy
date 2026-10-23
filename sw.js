@@ -1,7 +1,8 @@
 // Service worker: app-shell cache cho cả trang chủ (index.html) lẫn trang
 // giải (race.html). Bump CACHE khi các file dưới đổi đáng kể.
-var CACHE = 'bn27-cache-v13';
+var CACHE = 'bn27-cache-v14';
 var STATE = 'bn27-state';
+var FONTS = 'bn27-fonts';
 var CORE = [
   './',
   './index.html',
@@ -46,13 +47,16 @@ self.addEventListener('install', function (e) {
 self.addEventListener('activate', function (e) {
   e.waitUntil(
     caches.keys().then(function (keys) {
-      return Promise.all(keys.filter(function (k) { return k !== CACHE && k !== STATE; }).map(function (k) { return caches.delete(k); }));
+      return Promise.all(keys.filter(function (k) { return k !== CACHE && k !== STATE && k !== FONTS; }).map(function (k) { return caches.delete(k); }));
     }).then(function () { return self.clients.claim(); })
   );
 });
 
-// Mã nguồn (html/css/js) lấy mạng trước, để bản vừa deploy không bị kẹt sau
-// bản cache cũ; chỉ dùng cache khi offline. Ảnh và icon thì cache trước cho nhanh.
+// Vỏ app (html/css/js/json) trả NGAY từ cache rồi mới âm thầm tải bản mới về
+// cho lần sau (stale-while-revalidate). Trước đây phải đợi mạng xong mới vẽ,
+// nên mỗi lần chuyển tab là một lần khựng — nhất là khi sóng yếu.
+// Bản vừa deploy vẫn tới tay người dùng: mỗi lần deploy ta đổi CACHE nên
+// service worker mới sẽ cài, skipWaiting rồi trang tự tải lại.
 function isCode(req) {
   if (req.mode === 'navigate') return true;
   var p = new URL(req.url).pathname;
@@ -65,40 +69,54 @@ function isApi(req) {
   return /(^|\/)api\//.test(new URL(req.url).pathname);
 }
 
-self.addEventListener('fetch', function (e) {
-  var req = e.request;
-  if (req.method !== 'GET' || req.url.indexOf(self.location.origin) !== 0) return;
-  if (isApi(req)) return;
+// Font Google là tài nguyên bất biến (URL có đánh phiên bản). Cache lại để
+// khỏi phải hỏi mạng mỗi lần đổi trang — đây là thủ phạm gây nháy chữ.
+function isFont(req) {
+  return /^https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(req.url);
+}
 
-  if (isCode(req)) {
-    e.respondWith(
-      fetch(req).then(function (res) {
-        if (res && res.ok) {
-          var copy = res.clone();
-          caches.open(CACHE).then(function (c) { c.put(req, copy); });
-        }
+function putIn(cacheName, req, res) {
+  var copy = res.clone();
+  return caches.open(cacheName).then(function (c) { return c.put(req, copy); });
+}
+
+function staleWhileRevalidate(e, req) {
+  e.respondWith(
+    caches.match(req).then(function (cached) {
+      var net = fetch(req).then(function (res) {
+        if (res && res.ok) putIn(CACHE, req, res);
         return res;
       }).catch(function () {
-        return caches.match(req).then(function (r) {
-          return r || (req.mode === 'navigate' ? caches.match('./index.html') : undefined);
-        });
-      })
-    );
-    return;
-  }
+        return cached || (req.mode === 'navigate' ? caches.match('./index.html') : undefined);
+      });
+      // Có cache thì trả liền, phần tải mới chạy nền (waitUntil giữ cho service
+      // worker không bị ngắt giữa chừng).
+      if (cached) { e.waitUntil(net); return cached; }
+      return net;
+    })
+  );
+}
 
+function cacheFirst(e, req, cacheName) {
   e.respondWith(
     caches.match(req).then(function (cached) {
       if (cached) return cached;
       return fetch(req).then(function (res) {
-        if (res && res.ok) {
-          var copy = res.clone();
-          caches.open(CACHE).then(function (c) { c.put(req, copy); });
-        }
+        if (res && res.ok) putIn(cacheName, req, res);
         return res;
       });
     })
   );
+}
+
+self.addEventListener('fetch', function (e) {
+  var req = e.request;
+  if (req.method !== 'GET') return;
+  if (isFont(req)) { cacheFirst(e, req, FONTS); return; }
+  if (req.url.indexOf(self.location.origin) !== 0) return;
+  if (isApi(req)) return;
+  if (isCode(req)) { staleWhileRevalidate(e, req); return; }
+  cacheFirst(e, req, CACHE);
 });
 
 /* ---------- nhắc chạy ---------- */
