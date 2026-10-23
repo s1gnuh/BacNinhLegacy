@@ -13,14 +13,80 @@
       var n = el(id); if (n) n.disabled = !!v;
     });
   }
+  function num1(v) { return (Math.round(v * 10) / 10).toString().replace('.', ','); }
   function fmtSize(bytes) {
-    if (bytes < 1024 * 1024) return (Math.round(bytes / 1024 * 10) / 10).toString().replace('.', ',') + ' KB';
-    return (Math.round(bytes / 1048576 * 10) / 10).toString().replace('.', ',') + ' MB';
+    if (bytes < 1024) return Math.round(bytes) + ' B';
+    if (bytes < 1048576) return num1(bytes / 1024) + ' KB';
+    if (bytes < 1073741824) return num1(bytes / 1048576) + ' MB';
+    return num1(bytes / 1073741824) + ' GB';
   }
   function clearPending() {
     pending = null;
     var n = el('bk-confirm'); if (n) n.hidden = true;
     var f = el('bk-file'); if (f) f.value = '';
+  }
+
+  /* ---------- dung lượng ---------- */
+  // Ảnh chạy nằm trong IndexedDB nên cộng thẳng kích thước từng blob cho
+  // chính xác; phần còn lại (vỏ app, font, bộ nhớ đệm) suy ra từ tổng mà
+  // trình duyệt báo. Hạn mức là con số trình duyệt cấp cho tên miền này,
+  // không phải dung lượng trống của máy.
+  function renderStorage() {
+    var head = el('sg-head'), meter = el('sg-meter'), legend = el('sg-legend'), note = el('sg-note');
+    if (!head || !meter) return;
+
+    function giveUp(msg) {
+      head.textContent = msg;
+      meter.hidden = true;
+      if (legend) legend.innerHTML = '';
+      if (note) note.textContent = '';
+    }
+    if (!navigator.storage || !navigator.storage.estimate) {
+      giveUp('Trình duyệt này không cho biết dung lượng còn lại.');
+      return;
+    }
+
+    Promise.all([
+      navigator.storage.estimate().catch(function () { return null; }),
+      window.RunLog.loadRuns().catch(function () { return []; }),
+      navigator.storage.persisted ? navigator.storage.persisted().catch(function () { return false; }) : Promise.resolve(false)
+    ]).then(function (r) {
+      var est = r[0], runs = r[1] || [], persisted = r[2];
+      var photoBytes = 0;
+      runs.forEach(function (x) {
+        if (x.blob) photoBytes += x.blob.size || 0;
+        if (x.url) { try { URL.revokeObjectURL(x.url); } catch (e) {} }
+      });
+      if (!est || !est.quota) { giveUp('Trình duyệt này không cho biết dung lượng còn lại.'); return; }
+
+      var quota = est.quota, used = est.usage || 0;
+      if (photoBytes > used) photoBytes = used;        // ước lượng của trình duyệt có thể lệch chút
+      var appBytes = Math.max(0, used - photoBytes);
+      var free = Math.max(0, quota - used);
+
+      head.textContent = 'Đã dùng ' + fmtSize(used) + ' trong khoảng ' + fmtSize(quota) + ' trình duyệt cho phép.';
+      meter.hidden = false;
+      meter.innerHTML =
+        (photoBytes > 0 ? '<i class="m-photo" style="width:' + (photoBytes / quota * 100).toFixed(3) + '%"></i>' : '') +
+        (appBytes > 0 ? '<i class="m-app" style="width:' + (appBytes / quota * 100).toFixed(3) + '%"></i>' : '');
+      meter.setAttribute('aria-label',
+        'Đã dùng ' + fmtSize(used) + ' trên ' + fmtSize(quota) + ', còn trống ' + fmtSize(free));
+
+      legend.innerHTML =
+        '<span><i class="meter-dot m-photo"></i>Ảnh chạy ' + fmtSize(photoBytes) + '</span>' +
+        '<span><i class="meter-dot m-app"></i>App &amp; bộ nhớ đệm ' + fmtSize(appBytes) + '</span>' +
+        '<span><i class="meter-dot m-free"></i>Còn trống ' + fmtSize(free) + '</span>';
+
+      var avg = (runs.length && photoBytes) ? photoBytes / runs.length : 250 * 1024;
+      var more = Math.floor(free / avg);
+      var avgText = runs.length ? ' (ảnh của bạn trung bình ' + fmtSize(avg) + ').' : ' (tính theo cỡ ảnh thường gặp, khoảng 250 KB).';
+      note.textContent = (more >= 10000 ? 'Còn rất nhiều chỗ cho ảnh' : 'Còn đủ chỗ cho khoảng ' + more.toLocaleString('vi-VN') + ' ảnh nữa') + avgText
+        + (persisted
+            ? ' Dữ liệu đã được đánh dấu lưu bền.'
+            : ' Dữ liệu chưa được đánh dấu lưu bền — trình duyệt có thể tự xoá khi máy đầy, nên thỉnh thoảng xuất file sao lưu ở dưới.');
+    }).catch(function () {
+      giveUp('Không đọc được dung lượng.');
+    });
   }
 
   /* ---------- xuất ---------- */
@@ -91,6 +157,8 @@
     on('nt-time', 'change', function (e) { window.Notify.setTime(e.target.value); });
     on('nt-test', 'click', function () { window.Notify.test(); });
     on('nt-health', 'click', function () { window.Notify.health(); });
+
+    renderStorage();
 
     on('bk-export', 'click', doExport);
     on('bk-import', 'click', function () { clearPending(); status(''); el('bk-file').click(); });
