@@ -72,6 +72,10 @@ Những điểm làm nó nhanh:
 - Gửi ngay khi chọn ảnh; trong lúc chờ, ảnh xem trước hiện liền và ô số liệu nhấp nháy.
 - `preconnect` tới Google khi mở trang để bắt tay TLS xong từ trước.
 
+**Phân biệt chạy và đi bộ**: Gemini còn trả về loại hoạt động (`run` / `walk` / `other`). Đi bộ có trường "bước chân" và biểu tượng giày nằm bẹt, không có pace; chạy bộ có pace và biểu tượng giày nhấc gót. Loại được điền sẵn vào ô "Loại" (sửa lại được). Đi bộ không tính vào streak, PR, dự đoán và không tự đánh dấu buổi trong giáo án.
+
+Gemini chỉ lấy km, pace, thời gian, ngày và loại hoạt động; các trường khác trong ảnh như độ cao leo (Elev Gain) bị bỏ qua. Nhấn giữ icon app trên Android có lối tắt "Nhập nhanh" và "Lịch tập".
+
 **Nhập hàng loạt**: chọn nhiều ảnh cùng lúc (hoặc kéo thả, dán nhiều ảnh) thì app mở bảng hàng loạt. Mỗi ảnh là một dòng, Gemini đọc song song 3 ảnh một lúc, đọc luôn cả **ngày** nếu ảnh có ghi (không có thì lấy theo thời điểm chụp ảnh). Số nào thiếu thì tự tính từ hai số còn lại. Dòng có vẻ trùng một buổi đã lưu (cùng ngày, cùng km) bị bỏ tick sẵn. Soát lại rồi **Lưu tất cả**; tùy chọn tự đánh dấu buổi tương ứng trong Lịch tập theo ngày.
 
 API key nằm trong `localStorage` của trình duyệt, gửi thẳng cho Google, và **không** có trong file sao lưu. Nên giới hạn key theo tên miền của app trong Google AI Studio.

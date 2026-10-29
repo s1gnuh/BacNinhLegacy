@@ -14,5 +14,21 @@
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nhập nhanh",
+      "short_name": "Nhập nhanh",
+      "description": "Nhập một buổi chạy hoặc đọc ảnh Strava",
+      "url": "./log.html",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Lịch tập",
+      "short_name": "Lịch tập",
+      "description": "Xem buổi tập hôm nay",
+      "url": "./plan.html",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
   ]
 }

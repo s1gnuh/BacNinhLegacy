@@ -16,7 +16,12 @@ window.Vision = (function (Core) {
     + 'time = thời gian di chuyển, dạng m:ss hoặc h:mm:ss; '
     + 'date = ngày diễn ra hoạt động dạng YYYY-MM-DD nếu ảnh có ghi ngày '
     + '(thiếu năm thì lấy năm ' + new Date().getFullYear() + '). '
-    + 'Số liệu nào không thấy trong ảnh thì để chuỗi rỗng (km để 0).';
+    + 'Số liệu nào không thấy trong ảnh thì để chuỗi rỗng (km để 0). '
+    + 'kind = loại hoạt động: "walk" nếu là đi bộ, "run" nếu là chạy bộ, "other" nếu là môn khác (đạp xe, bơi...). '
+    + 'Cách phân biệt trên Strava: đi bộ có trường "bước chân" (steps) và biểu tượng chiếc giày nằm bẹt, không có pace; '
+    + 'chạy bộ có trường pace và biểu tượng chiếc giày nhấc gót chân lên. '
+    + 'Đi bộ thì pace để chuỗi rỗng nếu ảnh không có. '
+    + 'Bỏ qua mọi trường khác trong ảnh, đặc biệt là độ cao leo (Elev Gain), không dùng nó thay cho km hay pace.';
 
   var SCHEMA = {
     type: 'OBJECT',
@@ -24,9 +29,10 @@ window.Vision = (function (Core) {
       km: { type: 'NUMBER' },
       pace: { type: 'STRING' },
       time: { type: 'STRING' },
-      date: { type: 'STRING' }
+      date: { type: 'STRING' },
+      kind: { type: 'STRING', enum: ['run', 'walk', 'other'] }
     },
-    required: ['km', 'pace', 'time', 'date']
+    required: ['km', 'pace', 'time', 'date', 'kind']
   };
 
   var REPORT_PROMPT = 'Bạn là huấn luyện viên chạy bộ, viết tiếng Việt, giọng thân thiện và ngắn gọn. '
@@ -137,7 +143,9 @@ window.Vision = (function (Core) {
   }
   function normalize(o) {
     o = o || {};
-    return { km: normKm(o.km), pace: normClock(o.pace, false), time: normClock(o.time, true), date: normDate(o.date) };
+    var kind = String(o.kind == null ? '' : o.kind).toLowerCase().trim();
+    return { km: normKm(o.km), pace: normClock(o.pace, false), time: normClock(o.time, true), date: normDate(o.date),
+             kind: kind === 'run' || kind === 'walk' || kind === 'other' ? kind : '' };
   }
 
   // Bắt đầu đọc NGAY khi có file. Trả về hai promise chạy song song:

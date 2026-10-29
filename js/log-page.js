@@ -112,8 +112,10 @@
       var got = NUM.filter(function (f) { return d[f]; }).length;
       fillFromAi(d);
       if (d.date && !dateTouched && d.date !== val('date')) { setVal('date', d.date); refreshLink(); }
+      if (d.kind && el('qe-kind').value !== d.kind) { el('qe-kind').value = d.kind; refreshLink(); }
       var s = Math.round((Date.now() - t0) / 100) / 10;
-      setAi(got ? 'Đã tự điền trong ' + String(s).replace('.', ',') + ' giây. Kiểm tra lại số liệu trước khi lưu.'
+      var kindNote = d.kind === 'walk' ? ' Nhận diện: đi bộ.' : d.kind === 'other' ? ' Nhận diện: hoạt động khác.' : '';
+      setAi(got ? 'Đã tự điền trong ' + String(s).replace('.', ',') + ' giây.' + kindNote + ' Kiểm tra lại số liệu trước khi lưu.'
                 : 'Không đọc được số liệu nào trong ảnh. Nhập tay bên dưới.', got ? 'ok' : 'err');
     }).catch(function (e) {
       if (mine !== seq) return;
@@ -380,6 +382,7 @@
       + '<div class="qb-st busy" data-st>Chờ đọc...</div>'
       + '<div class="qb-fields">'
       + '<label class="fld"><span>Ngày</span><input type="date" data-f="date" value="' + row.date + '"></label>'
+      + '<label class="fld"><span>Loại</span><select data-f="kind"><option value="run">Chạy</option><option value="walk">Đi bộ</option><option value="other">Khác</option></select></label>'
       + '<label class="fld"><span>Km</span><input type="text" inputmode="decimal" data-f="km" autocomplete="off"></label>'
       + '<label class="fld"><span>Pace</span><input type="text" inputmode="numeric" data-f="pace" autocomplete="off"></label>'
       + '<label class="fld"><span>Thời gian</span><input type="text" inputmode="numeric" data-f="time" autocomplete="off"></label>'
@@ -420,12 +423,14 @@
       var got = NUM.filter(function (f) { return d[f]; }).length;
       NUM.forEach(function (f) { if (d[f]) rowSet(row.id, f, d[f]); });
       if (d.date) rowSet(row.id, 'date', d.date);
+      if (d.kind) rowSet(row.id, 'kind', d.kind);
       deriveRow(row.id);
       row.state = 'ok';
       var dup = dupOf(row.id);
       if (dup && rowIn(row.id, 'use')) rowIn(row.id, 'use').checked = false;
+      var kindNote = d.kind === 'walk' ? ' · đi bộ' : d.kind === 'other' ? ' · hoạt động khác' : '';
       rowStatus(row, dup ? 'Có vẻ trùng với buổi đã lưu (cùng ngày, cùng km), đã bỏ tick'
-                   : got ? (d.date ? 'Đã đọc xong' : 'Đã đọc, ngày lấy theo thời điểm chụp ảnh') : 'Không đọc được số liệu, nhập tay',
+                   : got ? (d.date ? 'Đã đọc xong' : 'Đã đọc, ngày lấy theo thời điểm chụp ảnh') + kindNote : 'Không đọc được số liệu, nhập tay',
                 got ? (dup ? 'err' : 'ok') : 'err');
     }).catch(function (e) {
       if (!findRow(row.id)) return;
@@ -490,9 +495,10 @@
         if (err) { failed++; rowStatus(row, err, 'err'); return null; }
         return row.blobP.then(function (blob) {
           var r = RL.newRun({ blob: blob });
-          r.date = date; r.kind = 'run'; r.km = km; r.pace = pace; r.time = time;
+          r.date = date; r.kind = rowVal(row.id, 'kind') || 'run'; r.km = km; r.pace = pace; r.time = time;
           r.cat = (km || pace || time) ? 'strava' : 'photo';
-          var t = link && r.cat === 'strava' ? candidateFor(date) : null;
+          // đi bộ / môn khác không được tính là buổi trong giáo án chạy
+          var t = link && r.cat === 'strava' && r.kind === 'run' ? candidateFor(date) : null;
           if (t) { r.sessionId = t.x.id; r.blockId = t.b.id; }
           return RL.saveRun(r).then(function (ok) {
             if (ok === null) { failed++; rowStatus(row, 'Không lưu được', 'err'); return; }
