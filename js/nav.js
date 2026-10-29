@@ -7,14 +7,14 @@ window.Nav = (function () {
   var ICON = {
     home: '<path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9a1 1 0 0 0 1 1h3v-6h4v6h3a1 1 0 0 0 1-1v-9"/>',
     plan: '<rect x="4" y="5" width="16" height="16" rx="3"/><path d="M4 10h16M8 3v4M16 3v4"/>',
-    log: '<path d="M12 6.3c-1.8-1.5-4.1-2.3-6.8-2.3a.9.9 0 0 0-.9.9v12.6c0 .5.4.9.9.9 2.7 0 5 .8 6.8 2.3 1.8-1.5 4.1-2.3 6.8-2.3.5 0 .9-.4.9-.9V4.9a.9.9 0 0 0-.9-.9c-2.7 0-5 .8-6.8 2.3Z"/><path d="M12 6.3v13.4"/>',
+    log: '<path d="M13 3 5 13.5h6L10 21l8-10.5h-6L13 3Z"/>',
     stats: '<path d="M4 20V11M11 20V4M18 20v-6"/><path d="M3 20h18"/>',
     settings: '<circle cx="7" cy="8" r="2"/><path d="M3 8h2.3M8.7 8H21"/><circle cx="16" cy="15" r="2"/><path d="M3 15h11.3M18.7 15H21"/>'
   };
   var ITEMS = [
     { page: 'home', href: 'index.html', label: 'Trang chủ', icon: ICON.home },
     { page: 'plan', href: 'plan.html', label: 'Lịch tập', icon: ICON.plan },
-    { page: 'log', href: 'log.html', label: 'Nhật ký', icon: ICON.log },
+    { page: 'log', href: 'log.html', label: 'Nhập nhanh', icon: ICON.log },
     { page: 'stats', href: 'stats.html', label: 'Thống kê', icon: ICON.stats },
     { page: 'settings', href: 'settings.html', label: 'Cài đặt', icon: ICON.settings }
   ];

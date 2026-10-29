@@ -504,3 +504,42 @@ a.btn-sm:hover { border-color: var(--fg); }
   .bar i, .cfill, .week, .row, .row input, .tabs button, .btn, .meter i { transition: none; }
   .chart.in .cbar, .row.just, .row input:checked, .tabpane.in, .toast { animation: none; }
 }
+
+/* ===== Nhập nhanh (log.html) ===== */
+.qe-drop { padding: 18px 16px; }
+.qe-photo { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; align-items: start; }
+.qe-photo img { width: 100%; max-height: 150px; object-fit: cover; object-position: top; border-radius: 8px; border: 1px solid var(--line); display: block; }
+.qe-photo-side { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; min-width: 0; }
+.qe-photo-side .hint.ok { color: var(--easy); }
+.qe-photo-side .hint.err { color: var(--quality); }
+.qe-photo-side .hint.busy::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 8px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--easy); animation: qe-spin .7s linear infinite; vertical-align: -1px; }
+@keyframes qe-spin { to { transform: rotate(360deg); } }
+.qe-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.qe.reading #qe-km, .qe.reading #qe-pace, .qe.reading #qe-time { animation: qe-pulse 1s ease-in-out infinite; }
+@keyframes qe-pulse { 50% { background: var(--easy-bg); } }
+.qe-link { display: flex; gap: 10px; align-items: center; font-size: 14px; cursor: pointer; }
+.qe-link input { width: 20px; height: 20px; margin: 0; accent-color: var(--easy); flex: 0 0 auto; }
+.qe-more { align-self: flex-start; margin-top: 10px; }
+.qe-nophoto { display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 6px; border: 1px solid var(--line); background: var(--easy-bg); color: var(--easy); font-family: var(--font-display); font-weight: 600; font-size: 18px; cursor: default; overflow: hidden; }
+.lg-acts { display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 520px) {
+  .lg-mini { grid-template-columns: 56px minmax(0, 1fr) auto; }
+  .qe-photo { grid-template-columns: 80px minmax(0, 1fr); }
+}
+
+/* ===== Sửa / xóa buổi trong Lịch tập ===== */
+.cdb-acts, .row-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.cdb-acts { margin-left: auto; }
+.cdb-acts + .kmv { margin-left: 0; }
+.row-acts { margin-top: 2px; }
+.tag-edited { font-size: 11.5px; color: var(--quality); font-weight: 600; }
+.sess-edit { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--bg); }
+.sess-edit textarea { font: inherit; font-size: 14px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; min-height: 70px; resize: vertical; }
+.sess-edit .lg-actions { grid-column: 1 / -1; }
+.removed-list { display: flex; flex-direction: column; gap: 6px; }
+.removed-item { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 14px; }
+.removed-item .hint { flex: 1 1 140px; }
+.hint.ok { color: var(--easy); }
+.hint.err { color: var(--quality); }
+.qe-key { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; align-items: end; border: 1px dashed var(--line); border-radius: 10px; padding: 12px; }
+.qe-key .hint { grid-column: 1 / -1; font-size: 12.5px; color: var(--muted); }

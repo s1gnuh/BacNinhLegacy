@@ -11,6 +11,8 @@
   var SEP = '::';
 
   var blocks = [], runs = [], sel = 'all', calMonth = null, calSel = '';
+  // buổi đang sửa / đang chờ xác nhận xóa: "blockId::sessionId", hoặc "run:<id>" cho nhật ký
+  var editKey = '', armedKey = '';
 
   /* ================= truy vấn ================= */
   function raceName(b) {
@@ -113,6 +115,117 @@
     box.innerHTML = cells;
   }
 
+  /* ================= sửa / xóa buổi tập ================= */
+  var TYPES = [['easy', 'Nhẹ'], ['quality', 'Chất lượng'], ['long', 'Dài']];
+
+  function isArmed(key) { return armedKey === key; }
+  function delBtn(key, cls) {
+    return '<button type="button" class="btn-sm"' + (isArmed(key) ? ' data-armed="1"' : '')
+      + ' data-act="del" data-k="' + key + '">' + (isArmed(key) ? 'Chắc chắn xóa?' : 'Xóa') + '</button>';
+  }
+  function actsHtml(key, x) {
+    return '<button type="button" class="btn-sm" data-act="edit" data-k="' + key + '">Sửa</button>'
+      + (x.s.type === 'race' ? '' : delBtn(key));
+  }
+
+  function editorHtml(key, x) {
+    var s = x.s, race = s.type === 'race';
+    return '<div class="sess-edit" data-ed="' + key + '">'
+      + '<label class="fld"><span>Loại</span><select data-sf="type"' + (race ? ' disabled' : '') + '>'
+      + (race ? '<option selected>Thi đấu</option>'
+              : TYPES.map(function (t) { return '<option value="' + t[0] + '"' + (s.type === t[0] ? ' selected' : '') + '>' + t[1] + '</option>'; }).join(''))
+      + '</select></label>'
+      + '<label class="fld"><span>Km</span><input type="text" inputmode="decimal" data-sf="km" value="' + C.esc(String(s.km || 0)) + '"></label>'
+      + '<label class="fld wide"><span>Tên buổi</span><input type="text" data-sf="title" value="' + C.esc(s.title) + '"></label>'
+      + '<label class="fld wide"><span>Mô tả</span><textarea data-sf="d">' + C.esc(s.d || '') + '</textarea></label>'
+      + '<div class="lg-actions">'
+      + '<button type="button" class="btn-sm primary" data-act="save-edit" data-k="' + key + '">Lưu</button>'
+      + '<button type="button" class="btn-sm" data-act="cancel-edit">Hủy</button>'
+      + (x.edited ? '<button type="button" class="btn-sm" data-act="reset-edit" data-k="' + key + '">Về bản gốc</button>' : '')
+      + '</div></div>';
+  }
+
+  function blockOf(key) { return B.get(key.split(SEP)[0]); }
+  function sidOf(key) { return key.split(SEP)[1]; }
+  function syncBlock(b) { for (var i = 0; i < blocks.length; i++) if (blocks[i].id === b.id) blocks[i] = b; }
+  function entryOf(key) {
+    var list = entries();
+    for (var i = 0; i < list.length; i++) if (list[i].b.id + SEP + list[i].x.id === key) return list[i];
+    return null;
+  }
+
+  function onAct(e) {
+    var btn = e.target.closest ? e.target.closest('[data-act]') : null;
+    if (!btn) return;
+    var act = btn.getAttribute('data-act'), key = btn.getAttribute('data-k') || '';
+    var b;
+
+    if (act === 'edit') {
+      var en = entryOf(key);
+      if (!en) return;
+      armedKey = ''; editKey = key;
+      // mở sửa từ lịch tuần thì nhảy sang đúng ngày để dùng chung một form
+      calSel = C.iso(en.x.date); calMonth = monthStart(en.x.date);
+      renderAll();
+      var t = el('p-day'); if (t && t.scrollIntoView) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (act === 'cancel-edit') {
+      editKey = ''; renderAll();
+    } else if (act === 'save-edit') {
+      b = blockOf(key);
+      var box = btn.closest('[data-ed]');
+      if (!b || !box) return;
+      var patch = {};
+      [].forEach.call(box.querySelectorAll('[data-sf]'), function (n) {
+        if (!n.disabled) patch[n.getAttribute('data-sf')] = n.value;
+      });
+      if (patch.km !== undefined) patch.km = String(patch.km).replace(',', '.');
+      if (patch.title !== undefined && !patch.title.trim()) { C.toast('Chưa lưu được', 'Tên buổi không được để trống'); return; }
+      syncBlock(B.editSession(b, sidOf(key), patch));
+      editKey = ''; renderAll(); C.toast('Đã sửa buổi tập', '');
+    } else if (act === 'reset-edit') {
+      b = blockOf(key);
+      if (!b) return;
+      syncBlock(B.resetSession(b, sidOf(key)));
+      editKey = ''; renderAll(); C.toast('Đã về bản gốc', '');
+    } else if (act === 'del') {
+      if (armedKey !== key) { armedKey = key; renderAll(); return; }
+      b = blockOf(key);
+      if (!b) return;
+      syncBlock(B.removeSession(b, sidOf(key)));
+      armedKey = ''; editKey = ''; renderAll(); C.toast('Đã xóa buổi tập', 'Khôi phục ở mục "Buổi đã xóa"');
+    } else if (act === 'restore') {
+      b = blockOf(key);
+      if (!b) return;
+      syncBlock(B.restoreSession(b, sidOf(key)));
+      renderAll(); C.toast('Đã khôi phục buổi tập', '');
+    } else if (act === 'run-del') {
+      if (armedKey !== 'run:' + key) { armedKey = 'run:' + key; renderDay(); return; }
+      RL.removeRun(key).then(function () {
+        runs = runs.filter(function (r) { return r.id !== key; });
+        armedKey = ''; renderCal(); renderDay(); C.toast('Đã xóa nhật ký', '');
+      });
+    }
+  }
+
+  function renderRemoved() {
+    var wrap = el('p-removed-wrap'), box = el('p-removed');
+    if (!wrap || !box) return;
+    var rows = [];
+    selected().forEach(function (b) {
+      B.sessionsOf(b, { includeRemoved: true }).list.forEach(function (x) {
+        if (x.removed) rows.push({ b: b, x: x });
+      });
+    });
+    wrap.hidden = !rows.length;
+    box.innerHTML = rows.map(function (r) {
+      return '<div class="removed-item"><span class="chip t-' + r.x.s.type + '">' + C.LABEL[r.x.s.type] + '</span>'
+        + '<strong>' + C.esc(r.x.s.title) + '</strong>'
+        + '<span class="hint">' + C.fmt(r.x.date) + '/' + r.x.date.getFullYear()
+        + (sel === 'all' && blocks.length > 1 ? ' · ' + C.esc(raceName(r.b)) : '') + '</span>'
+        + '<button type="button" class="btn-sm" data-act="restore" data-k="' + r.b.id + SEP + r.x.id + '">Khôi phục</button></div>';
+    }).join('');
+  }
+
   /* ================= chi tiết một ngày ================= */
   function renderDay() {
     var box = el('p-day');
@@ -129,15 +242,19 @@
       html += list.map(function (e) {
         var dn = !!e.b.done[e.x.id];
         var multi = sel === 'all' && blocks.length > 1;
+        var key = e.b.id + SEP + e.x.id;
         return '<div class="cdb">'
-          + '<input type="checkbox" data-done="' + e.b.id + SEP + e.x.id + '"' + (dn ? ' checked' : '')
+          + '<input type="checkbox" data-done="' + key + '"' + (dn ? ' checked' : '')
           + ' aria-label="Đã chạy ' + C.esc(e.x.s.title) + '">'
           + '<span class="chip t-' + e.x.s.type + '">' + C.LABEL[e.x.s.type] + '</span>'
           + '<span class="cdt">' + C.esc(e.x.s.title) + '</span>'
+          + (e.x.edited ? '<span class="tag-edited">đã sửa</span>' : '')
           + (multi ? '<span class="hint">' + C.esc(raceName(e.b)) + '</span>' : '')
+          + '<span class="cdb-acts">' + actsHtml(key, e.x) + '</span>'
           + '<span class="kmv num">' + C.fmtKm(e.x.s.km) + ' km</span>'
           + '</div>'
-          + (e.x.s.d ? '<p class="cdn">' + C.esc(e.x.s.d) + '</p>' : '');
+          + (editKey === key ? editorHtml(key, e.x)
+              : (e.x.s.d ? '<p class="cdn">' + C.esc(e.x.s.d) + '</p>' : ''));
       }).join('');
     }
 
@@ -147,16 +264,23 @@
         if (l.km) bits.push(l.km + ' km');
         if (l.time) bits.push(l.time);
         if (l.pace) bits.push(l.pace + '/km');
+        var armed = armedKey === 'run:' + l.id;
         return '<article class="lg lg-mini' + (l.cat === 'photo' ? ' photo' : '') + '">'
-          + '<div class="lg-thumb"><img src="' + (l.url || '') + '" loading="lazy" alt=""></div>'
+          + (l.url ? '<div class="lg-thumb"><img src="' + l.url + '" loading="lazy" alt=""></div>'
+                   : '<div class="lg-thumb qe-nophoto" aria-hidden="true">' + (l.km ? C.esc(l.km) : '–') + '</div>')
           + '<div class="lg-mini-body">'
-          + '<div class="lg-mini-top">' + (l.cat === 'photo' ? 'Ảnh chạy' : 'Strava') + '</div>'
+          + '<div class="lg-mini-top">' + (l.cat === 'photo' ? 'Ảnh chạy' : 'Nhật ký chạy') + '</div>'
           + '<div class="lg-mini-stats">' + (bits.length ? bits.join(' · ') : '—') + '</div>'
           + (l.note ? '<div class="hint">' + C.esc(l.note) + '</div>' : '')
+          + '</div>'
+          + '<div class="lg-acts">'
+          + '<a class="btn-sm" href="log.html?edit=' + l.id + '">Sửa</a>'
+          + '<button type="button" class="btn-sm"' + (armed ? ' data-armed="1"' : '') + ' data-act="run-del" data-k="' + l.id + '">'
+          + (armed ? 'Chắc chắn?' : 'Xóa') + '</button>'
           + '</div></article>';
       }).join('') + '</div>';
     }
-    html += '<a class="btn-sm" href="log.html">Thêm ảnh hoặc nhật ký cho ngày này</a>';
+    html += '<a class="btn-sm" href="log.html?date=' + calSel + '">Nhập buổi chạy cho ngày này</a>';
     box.innerHTML = html;
   }
 
@@ -185,7 +309,9 @@
                 + ' aria-label="Đã chạy ' + C.esc(x.s.title) + '">')
           + '<div class="day"><b>' + C.WD[(x.date.getDay() + 6) % 7] + '</b><span class="num">' + C.fmt(x.date) + '</span></div>'
           + '<div class="what"><strong>' + C.esc(x.s.title) + '</strong>'
+          + (x.edited ? '<span class="tag-edited">đã sửa</span>' : '')
           + (x.s.d ? '<p>' + C.esc(x.s.d) + '</p>' : '')
+          + (x.s.type === 'rest' ? '' : '<div class="row-acts">' + actsHtml(one.id + SEP + x.id, x) + '</div>')
           + '<details class="note-box"><summary>Ghi chú</summary>'
           + '<textarea class="note-ta" data-note="' + one.id + SEP + x.id + '" rows="2">' + C.esc(one.notes[x.id] || '') + '</textarea>'
           + '</details></div>'
@@ -229,8 +355,8 @@
     var has = blocks.length > 0;
     el('p-empty').hidden = has;
     el('p-cal-wrap').hidden = !has;
-    if (!has) { el('p-weeks-wrap').hidden = true; return; }
-    renderCal(); renderDay(); renderWeeks();
+    if (!has) { el('p-weeks-wrap').hidden = true; el('p-removed-wrap').hidden = true; return; }
+    renderCal(); renderDay(); renderWeeks(); renderRemoved();
   }
 
   function markDone(key, checked, anchor) {
@@ -246,7 +372,7 @@
 
   function bind() {
     on('p-pick', 'change', function (e) {
-      sel = e.target.value; calMonth = null; calSel = '';
+      sel = e.target.value; calMonth = null; calSel = ''; editKey = ''; armedKey = '';
       renderAll();
     });
     on('p-prev', 'click', function () {
@@ -260,12 +386,15 @@
       if (!btn) return;
       var key = btn.getAttribute('data-day');
       calSel = calSel === key ? '' : key;
+      editKey = ''; armedKey = '';
       renderCal(); renderDay();
     });
     on('p-jump', 'click', function () {
       var t = document.querySelector('#p-weeks .week.current') || document.querySelector('#p-weeks .week');
       if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
+
+    document.addEventListener('click', onAct);
 
     // đánh dấu đã chạy — dùng chung cho cả chi tiết ngày và lịch tuần
     document.addEventListener('change', function (e) {

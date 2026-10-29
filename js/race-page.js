@@ -87,8 +87,8 @@
       var d = R.daysUntil(race);
       box.innerHTML = '<div class="when"><span class="chip tag-now">' + (d >= 0 ? 'Còn ' + d + ' ngày' : 'Đã qua') + '</span></div>' +
         '<h2>' + C.esc(race.name) + '</h2>' +
-        '<p class="detail">Chưa có giáo án cho giải này. Ghi nhật ký chạy tự do ở tab Nhật ký trên menu.</p>' +
-        '<a class="btn" href="log.html">Mở nhật ký</a>';
+        '<p class="detail">Chưa có giáo án cho giải này. Nhập buổi chạy tự do ở tab Nhập nhanh trên menu.</p>' +
+        '<a class="btn" href="log.html">Mở Nhập nhanh</a>';
       return;
     }
     var t0 = C.today0();

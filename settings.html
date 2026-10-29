@@ -36,6 +36,21 @@
     </div>
   </section>
 
+  <section class="panel" id="vision">
+    <h2>Đọc ảnh Strava tự động</h2>
+    <p class="hint">Chọn ảnh Strava ở tab Nhập nhanh, Gemini đọc khoảng cách, pace và thời gian rồi điền sẵn vào form. Lấy API key miễn phí ở <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>. Key chỉ lưu trong trình duyệt này, được gửi thẳng tới Google (không qua máy chủ của app) và không nằm trong file sao lưu.</p>
+    <div class="qe-grid">
+      <label class="fld"><span>Gemini API key</span><input type="password" id="vs-key" autocomplete="off" spellcheck="false" placeholder="AIza..."></label>
+      <label class="fld"><span>Model</span><input type="text" id="vs-model" autocomplete="off" spellcheck="false"></label>
+    </div>
+    <div class="panel-actions">
+      <button type="button" class="btn-sm primary" id="vs-save">Lưu</button>
+      <button type="button" class="btn-sm" id="vs-test">Thử kết nối</button>
+      <button type="button" class="btn-sm" id="vs-clear">Xóa key</button>
+    </div>
+    <p class="hint" id="vs-status"></p>
+  </section>
+
   <section class="panel" id="notify">
     <h2>Nhắc chạy trên điện thoại</h2>
     <p class="hint">Bật để nhận thông báo vào ngày có buổi chạy mà bạn chưa đánh dấu xong, gộp từ mọi giải đang có giáo án active. Cần thêm trang này vào màn hình chính trước, iPhone bắt buộc phải làm vậy mới cho gửi thông báo.</p>
@@ -81,6 +96,7 @@
 <script src="js/blocks.js"></script>
 <script src="js/runlog.js"></script>
 <script src="js/notify.js"></script>
+<script src="js/vision.js"></script>
 <script src="js/backup.js"></script>
 <script src="js/settings-page.js"></script>
 </body>

@@ -48,6 +48,36 @@
     renderTheme();
   }
 
+  /* ---------- đọc ảnh bằng Gemini ---------- */
+  function vsStatus(msg, cls) {
+    var n = el('vs-status');
+    if (!n) return;
+    n.textContent = msg || '';
+    n.className = 'hint' + (cls ? ' ' + cls : '');
+  }
+  function renderVision() {
+    var k = el('vs-key'), m = el('vs-model'), V = window.Vision;
+    if (!k || !V) return;
+    k.value = V.getKey();
+    m.value = V.getModel();
+    vsStatus(V.hasKey() ? 'Đã có API key.' : 'Chưa có API key — tab Nhập nhanh vẫn dùng được, chỉ không tự điền từ ảnh.');
+  }
+  function saveVision() {
+    var V = window.Vision;
+    V.setKey(el('vs-key').value);
+    V.setModel(el('vs-model').value === V.DEFAULT_MODEL ? '' : el('vs-model').value);
+    el('vs-model').value = V.getModel();
+    vsStatus(V.hasKey() ? 'Đã lưu.' : 'Đã lưu, nhưng chưa có API key.');
+  }
+  function testVision() {
+    saveVision();
+    if (!window.Vision.hasKey()) { vsStatus('Nhập API key trước.', 'err'); return; }
+    vsStatus('Đang thử kết nối...');
+    window.Vision.test().then(function (ms) {
+      vsStatus('Kết nối tốt: Gemini trả lời sau ' + ms + ' ms.', 'ok');
+    }).catch(function (e) { vsStatus(e.message || 'Không kết nối được.', 'err'); });
+  }
+
   /* ---------- dung lượng ---------- */
   // Ảnh chạy nằm trong IndexedDB nên cộng thẳng kích thước từng blob cho
   // chính xác; phần còn lại (vỏ app, font, bộ nhớ đệm) suy ra từ tổng mà
@@ -149,7 +179,7 @@
       try { when = new Date(s.exportedAt).toLocaleDateString('vi-VN'); } catch (e) {}
       status('File' + (when ? ' ngày ' + when : '') + ': ' + s.races + ' giải · ' + s.blocks
         + ' giáo án · ' + s.done + ' buổi đã đánh dấu · ' + s.goals + ' mục tiêu · '
-        + s.photos + ' ảnh. Bấm "Xác nhận khôi phục" để gộp vào dữ liệu hiện có.');
+        + s.runs + ' buổi chạy (' + s.photos + ' có ảnh). Bấm "Xác nhận khôi phục" để gộp vào dữ liệu hiện có.');
       el('bk-confirm').hidden = false;
     };
     fr.onerror = function () { busy(false); clearPending(); status('Không đọc được file.'); };
@@ -182,6 +212,10 @@
 
     renderTheme();
     renderStorage();
+    renderVision();
+    on('vs-save', 'click', saveVision);
+    on('vs-test', 'click', testVision);
+    on('vs-clear', 'click', function () { el('vs-key').value = ''; saveVision(); });
 
     var seg = el('th-seg');
     if (seg) seg.addEventListener('click', function (e) {

@@ -54,18 +54,32 @@ Giải Bắc Ninh Legacy Marathon 2027 chính là bản ghi đầu tiên của c
 - **Biểu đồ km theo tuần**: cột nhạt là dự kiến, phần tô đậm là đã chạy.
 - **Tham khảo**: pace zones, mục tiêu A/B/C và chiến thuật ngày thi riêng của giải đó, cộng nguyên tắc tập chung.
 
-### Ảnh & nhật ký (trong từng trang giải)
+### Nhập nhanh (`log.html`)
 
-Hai loại ảnh, chọn lúc tải lên và đổi được sau:
+Form nhập một buổi chạy: ngày, loại (chạy / đi bộ / khác), km, pace, thời gian, chú thích, và ảnh nếu muốn. Chỉ cần nhập **hai trong ba** số km / pace / thời gian, số còn lại tự tính. Nếu ngày đó có buổi trong Lịch tập chưa đánh dấu, ô "Đánh dấu xong buổi…" được tick sẵn nên lưu một lần là xong cả hai. Bên dưới là danh sách các buổi đã nhập gần đây, mỗi buổi có **Sửa** và **Xóa** (bấm hai lần để xác nhận).
 
-| | Ảnh Strava | Ảnh chạy |
-| --- | --- | --- |
-| Dùng để | ghi số liệu buổi tập | lưu kỷ niệm trên đường |
-| Các ô nhập | ngày, loại, km, pace, thời gian, chú thích, buổi | ngày, chú thích, buổi |
-| Tự gắn vào buổi theo ngày | có | có |
-| Tự đánh dấu đã chạy | có | không |
+Buổi nhập tay không cần ảnh. Có ảnh mà không có số liệu thì được lưu như "ảnh chạy" (kỷ niệm).
 
-Mỗi ảnh có nút **Lưu** riêng, đọc thẳng giá trị đang có trong ô nên không phụ thuộc việc bạn đã rời con trỏ hay chưa. Lưu xong mà buổi tập chuyển thành đã chạy thì app bắn pháo hoa chúc mừng, giống hệt khi tick trong lịch.
+### Đọc ảnh Strava bằng Gemini (`js/vision.js`)
+
+Chọn, kéo thả hoặc dán (Ctrl+V) một ảnh chụp màn hình Strava, app gửi ảnh cho Gemini đọc khoảng cách, pace, thời gian rồi điền sẵn vào form. Cần dán API key ở **Cài đặt → Đọc ảnh Strava tự động** (lấy miễn phí ở Google AI Studio). Model mặc định `gemini-3.5-flash-lite`, đổi được trong Cài đặt.
+
+Những điểm làm nó nhanh:
+
+- Gọi thẳng từ trình duyệt tới Google, không qua serverless function nên bớt một chặng mạng.
+- Ảnh được giải mã một lần, rồi thu nhỏ còn 960px (JPEG 0,72) để gửi đi, song song với việc tạo bản 1400px để lưu.
+- Ép trả JSON theo schema 3 trường, `temperature: 0`, nên chỉ sinh vài chục token.
+- Gửi ngay khi chọn ảnh; trong lúc chờ, ảnh xem trước hiện liền và ô số liệu nhấp nháy.
+- `preconnect` tới Google khi mở trang để bắt tay TLS xong từ trước.
+
+API key nằm trong `localStorage` của trình duyệt, gửi thẳng cho Google, và **không** có trong file sao lưu. Nên giới hạn key theo tên miền của app trong Google AI Studio.
+
+### Sửa / xóa trong Lịch tập (`plan.html`)
+
+- **Sửa buổi tập**: đổi loại (nhẹ / chất lượng / dài), tên, km và mô tả của từng buổi. Buổi đã sửa có nhãn "đã sửa" và nút **Về bản gốc**. Buổi thi đấu chỉ đổi được tên, km, mô tả.
+- **Xóa buổi tập**: bấm hai lần để xác nhận. Buổi bị xóa biến khỏi lịch và mọi thống kê, nằm trong mục **Buổi đã xóa** để **Khôi phục** bất cứ lúc nào. Buổi thi đấu không xóa được.
+- Các thay đổi này nằm trong `block.edits` / `block.removed`, khuôn gốc không bị đụng tới.
+- Nhật ký chạy của ngày đang chọn cũng có **Sửa** (mở form Nhập nhanh) và **Xóa**.
 
 ### Động lực
 
@@ -94,7 +108,7 @@ Mặc định mọi thứ nằm trong trình duyệt của bạn:
 
 **Khi bật nhắc chạy bằng push**, một phần dữ liệu được gửi lên máy chủ và lưu trong Upstash Redis: danh sách ngày tập (gộp từ mọi block active) kèm tên buổi và cờ đã-chạy, múi giờ, giờ nhắc, và địa chỉ đăng ký nhận thông báo của trình duyệt. **Ảnh không bao giờ rời khỏi máy bạn.** Tắt nhắc nhở thì bản ghi đó bị xoá khỏi máy chủ.
 
-Chưa có chức năng xuất/nhập file backup, nên đổi máy hoặc xoá dữ liệu trang là mất hết.
+Sao lưu / khôi phục bằng file JSON ở trang Cài đặt (gồm cả buổi nhập tay không có ảnh). API key Gemini cố ý không nằm trong file sao lưu.
 
 ### Chuyển đổi dữ liệu cũ (migrate)
 
@@ -119,7 +133,10 @@ js/
   templates.js      khuôn giáo án tái sử dụng được (hiện có "periodized-12w" = khuôn Bắc Ninh)
   blocks.js         1 lần áp khuôn vào 1 giải: sinh buổi tập, tick/ghi chú, lịch tuỳ chỉnh
   races.js          CRUD giải đấu, liên kết block
-  runlog.js         nhật ký chạy + ảnh trong IndexedDB, tính PR và streak
+  runlog.js         nhật ký chạy (ảnh không bắt buộc) trong IndexedDB, tính PR và streak
+  vision.js         đọc ảnh Strava bằng Gemini: km, pace, thời gian
+  log-page.js       trang Nhập nhanh (log.html)
+  plan-page.js      trang Lịch tập (plan.html), gồm sửa/xóa buổi
   goals.js          mục tiêu cá nhân + tính tiến độ
   migrate.js        chuyển dữ liệu bn27-* cũ sang mô hình mới, chạy một lần
   notify.js         nhắc chạy cục bộ + Web Push, gộp từ mọi block active

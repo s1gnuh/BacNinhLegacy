@@ -48,20 +48,68 @@ window.Blocks = (function (Core, Templates) {
 
   // Danh sách buổi tập đầy đủ của 1 block, sắp theo ngày — tương đương
   // hàm `all()` trong script.js bản cũ nhưng nhận block làm tham số.
-  function sessionsOf(block) {
+  // Buổi đã sửa/xoá riêng cho block này nằm ở block.edits[sid] (ghi đè
+  // type/title/d/km lên buổi gốc của khuôn) và block.removed[sid]. Khuôn không
+  // bị đụng tới nên "đặt lại" và "khôi phục" luôn quay về đúng buổi gốc.
+  // Mặc định buổi đã xoá bị ẩn khỏi mọi thống kê; opts.includeRemoved trả cả
+  // chúng (x.removed = true) để màn hình Lịch tập cho khôi phục.
+  function sessionsOf(block, opts) {
     var tpl = Templates.get(block.templateId);
     if (!tpl) return { tpl: null, sessions: [], list: [] };
     var sessions = Templates.buildSessions(tpl, block.raceTitle, block.raceDesc, block.raceKm);
+    var withRemoved = !!(opts && opts.includeRemoved);
+    var edits = block.edits || {}, removed = block.removed || {};
     var out = [];
     sessions.forEach(function (s, wi) {
       tpl.days.forEach(function (dy, si) {
         if (!visible(block, tpl, dy)) return;
+        var id = sessionId(wi, dy.k), gone = !!removed[id];
+        if (gone && !withRemoved) return;
         var off = offFor(block, tpl, sessions, wi, dy.k);
-        out.push({ wi: wi, dy: dy, si: si, off: off, s: s[dy.k], date: dayOf(block, wi, off), id: sessionId(wi, dy.k) });
+        var orig = s[dy.k], ed = edits[id], cur = orig;
+        if (ed) {
+          cur = {};
+          Object.keys(orig).forEach(function (k) { cur[k] = orig[k]; });
+          ['type', 'title', 'd', 'km'].forEach(function (k) { if (ed[k] !== undefined) cur[k] = ed[k]; });
+        }
+        out.push({ wi: wi, dy: dy, si: si, off: off, s: cur, orig: orig, edited: !!ed, removed: gone,
+                   date: dayOf(block, wi, off), id: id });
       });
     });
     out.sort(function (a, b) { return a.date - b.date || a.si - b.si; });
     return { tpl: tpl, sessions: sessions, list: out };
+  }
+
+  // patch: { type, title, d, km }. Trường nào trùng buổi gốc thì bỏ khỏi bản
+  // ghi đè; không còn gì khác gốc thì coi như chưa sửa.
+  function editSession(block, sid, patch) {
+    var x = null, list = sessionsOf(block, { includeRemoved: true }).list;
+    for (var i = 0; i < list.length; i++) if (list[i].id === sid) { x = list[i]; break; }
+    if (!x) return block;
+    var ed = {};
+    ['type', 'title', 'd', 'km'].forEach(function (k) {
+      if (patch[k] === undefined) return;
+      var v = k === 'km' ? Math.max(0, Number(patch[k]) || 0) : String(patch[k]).trim();
+      if (k === 'title' && !v) return;
+      if (k === 'type' && (x.orig.type === 'race' || ['easy', 'quality', 'long'].indexOf(v) < 0)) return;
+      if (v !== x.orig[k]) ed[k] = v;
+    });
+    block.edits = block.edits || {};
+    if (Object.keys(ed).length) block.edits[sid] = ed; else delete block.edits[sid];
+    return save(block);
+  }
+  function resetSession(block, sid) {
+    if (block.edits) delete block.edits[sid];
+    return save(block);
+  }
+  function removeSession(block, sid) {
+    block.removed = block.removed || {};
+    block.removed[sid] = 1;
+    return save(block);
+  }
+  function restoreSession(block, sid) {
+    if (block.removed) delete block.removed[sid];
+    return save(block);
   }
 
   function findSession(block, sid) {
@@ -118,6 +166,8 @@ window.Blocks = (function (Core, Templates) {
     sessionId: sessionId, sessionsOf: sessionsOf, findSession: findSession,
     offFor: offFor, dayOf: dayOf, visible: visible,
     setDone: setDone, setNote: setNote, hasOverride: hasOverride,
+    editSession: editSession, resetSession: resetSession,
+    removeSession: removeSession, restoreSession: restoreSession,
     stats: stats, weeklyLoad: weeklyLoad, weekComplete: weekComplete, isActive: isActive
   };
 })(window.Core, window.Templates);

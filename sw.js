@@ -1,6 +1,6 @@
 // Service worker: app-shell cache cho cả trang chủ (index.html) lẫn trang
 // giải (race.html). Bump CACHE khi các file dưới đổi đáng kể.
-var CACHE = 'bn27-cache-v17';
+var CACHE = 'bn27-cache-v19';
 var STATE = 'bn27-state';
 var FONTS = 'bn27-fonts';
 var CORE = [
@@ -31,6 +31,7 @@ var CORE = [
   './js/stats-page.js',
   './js/settings-page.js',
   './js/backup.js',
+  './js/vision.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',

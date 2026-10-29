@@ -136,6 +136,7 @@ window.Backup = (function (Core, RunLog) {
       races: races, blocks: blocks, done: done, goals: goals,
       runs: runs.length,
       photos: runs.filter(function (r) { return !!r.photo; }).length,
+      manual: runs.filter(function (r) { return !r.photo; }).length,
       exportedAt: data.exportedAt
     };
   }
@@ -151,9 +152,10 @@ window.Backup = (function (Core, RunLog) {
     var runs = data.runs || [];
     return runs.reduce(function (p, r) {
       return p.then(function () {
-        if (!r || !r.id || !r.photo) return null;   // bản ghi không có ảnh thì app không đọc được
-        return dataUrlToBlob(r.photo).then(function (blob) {
-          if (!blob) return null;
+        if (!r || !r.id) return null;
+        // Bản ghi nhập tay không có ảnh vẫn khôi phục bình thường (blob rỗng).
+        return (r.photo ? dataUrlToBlob(r.photo) : Promise.resolve(null)).then(function (blob) {
+          if (r.photo && !blob) return null;
           return RunLog.saveRun({
             id: r.id, blob: blob, date: r.date || '', km: r.km || '', pace: r.pace || '',
             time: r.time || '', title: r.title || '', kind: r.kind || 'run',

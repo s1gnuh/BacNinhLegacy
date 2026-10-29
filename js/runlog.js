@@ -56,7 +56,8 @@ window.RunLog = (function (Core) {
   function removeRun(id) { return idbRun('readwrite', function (st) { return st.delete(id); }); }
   function loadRuns() {
     return idbRun('readonly', function (st) { return st.getAll(); }).then(function (rows) {
-      return Array.isArray(rows) ? rows.filter(function (r) { return r && r.blob; }).map(hydrate) : [];
+      // Bản ghi nhập tay không có ảnh (blob rỗng) vẫn là một buổi chạy hợp lệ.
+      return Array.isArray(rows) ? rows.filter(function (r) { return r && r.id; }).map(hydrate) : [];
     });
   }
 
@@ -79,7 +80,7 @@ window.RunLog = (function (Core) {
   }
 
   function newRun(opts) {
-    return hydrate({ id: Core.uid('r'), blob: opts.blob, kind: 'run', cat: opts.cat || 'strava',
+    return hydrate({ id: Core.uid('r'), blob: opts.blob || null, kind: 'run', cat: opts.cat || 'strava',
                       blockId: opts.blockId || '', raceId: opts.raceId || '', added: Date.now() });
   }
 
