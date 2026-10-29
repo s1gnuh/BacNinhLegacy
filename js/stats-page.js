@@ -3,7 +3,7 @@
 // tập trung vào "hôm nay cần làm gì".
 (function () {
   'use strict';
-  var C = window.Core, B = window.Blocks, RL = window.RunLog, G = window.Goals;
+  var C = window.Core, B = window.Blocks, RL = window.RunLog, G = window.Goals, S = window.Shoes;
   var el = function (id) { return document.getElementById(id); };
   var on = function (id, ev, fn) { var n = el(id); if (n) n.addEventListener(ev, fn); };
   var runs = [];
@@ -314,13 +314,119 @@
     }).then(function () { btn.disabled = false; });
   }
 
+  /* ================= giày chạy ================= */
+  var shoeEdit = '', shoeArmed = '';   // đôi đang sửa / đang chờ xác nhận (xóa hoặc gán hàng loạt)
+  var LEVEL = { ok: 'Còn tốt', warn: 'Sắp thay', over: 'Nên thay' };
+
+  function shoeCard(shoe, use, def) {
+    var st = S.stat(shoe, use[shoe.id]);
+    var pct = Math.min(100, Math.round(st.pct * 100));
+    var n = S.unassigned(runs, shoe.since).length;
+    var bits = [st.n + ' buổi'];
+    if (st.last) bits.push('gần nhất ' + C.fmt(C.fromIso(st.last)));
+    if (!shoe.retired && st.level !== 'over' && st.weeks) bits.push('còn khoảng ' + st.weeks + ' tuần nếu giữ nhịp 4 tuần qua');
+    if (shoe.startKm) bits.push('đã chạy sẵn ' + C.fmtKm(shoe.startKm) + ' km');
+    var akey = 'asg:' + shoe.id, dkey = 'del:' + shoe.id;
+    return '<article class="shoe' + (shoe.retired ? ' retired' : '') + '" data-id="' + shoe.id + '">'
+      + '<div class="shoe-top"><strong>' + C.esc(shoe.name) + '</strong>'
+      + (def ? '<span class="chip t-easy">Mặc định</span>' : '')
+      + (shoe.retired ? '<span class="chip t-rest">Đã nghỉ</span>' : '<span class="chip shoe-' + st.level + '">' + LEVEL[st.level] + '</span>')
+      + '<span class="shoe-km num">' + C.fmtKm(st.total) + ' / ' + C.fmtKm(st.retire) + ' km</span></div>'
+      + '<div class="shoe-bar" role="img" aria-label="' + pct + '% ngưỡng thay giày"><i class="' + st.level + '" style="width:' + pct + '%"></i></div>'
+      + '<p class="hint">' + C.esc(bits.join(' · ')) + '</p>'
+      + '<div class="shoe-acts">'
+      + (shoe.retired || def ? '' : '<button type="button" class="btn-sm" data-sh="def">Đặt mặc định</button>')
+      + '<button type="button" class="btn-sm" data-sh="edit">Sửa</button>'
+      + '<button type="button" class="btn-sm" data-sh="retire">' + (shoe.retired ? 'Dùng lại' : 'Cho nghỉ') + '</button>'
+      + (n && !shoe.retired ? '<button type="button" class="btn-sm"' + (shoeArmed === akey ? ' data-armed="1"' : '') + ' data-sh="assign">'
+          + (shoeArmed === akey ? 'Gán ' + n + ' buổi?' : 'Gán ' + n + ' buổi chưa có giày') + '</button>' : '')
+      + '<button type="button" class="btn-sm"' + (shoeArmed === dkey ? ' data-armed="1"' : '') + ' data-sh="del">' + (shoeArmed === dkey ? 'Chắc chắn xóa?' : 'Xóa') + '</button>'
+      + '</div></article>';
+  }
+
+  function renderShoes() {
+    var box = el('shoe-list');
+    if (!box) return;
+    var shoes = S.list(), use = S.usage(runs), def = S.defaultId();
+    box.innerHTML = shoes.length ? shoes.map(function (s) { return shoeCard(s, use, s.id === def); }).join('')
+      : '<p class="hint">Chưa có đôi giày nào. Thêm một đôi để biết nó đã chạy bao nhiêu km và khi nào nên thay.</p>';
+    var due = shoes.filter(function (s) { return !s.retired && S.stat(s, use[s.id]).level !== 'ok'; });
+    el('shoe-sum').textContent = due.length
+      ? due.map(function (s) { var st = S.stat(s, use[s.id]); return s.name + (st.level === 'over' ? ' đã vượt ngưỡng' : ' sắp tới ngưỡng'); }).join('; ') + '.'
+      : (shoes.length ? 'Giày đang dùng đều còn tốt.' : '');
+  }
+
+  function openShoeForm(shoe) {
+    shoeEdit = shoe ? shoe.id : '';
+    el('shoe-form').hidden = false;
+    el('shoe-name').value = shoe ? shoe.name : '';
+    el('shoe-start').value = shoe && shoe.startKm ? String(shoe.startKm).replace('.', ',') : '';
+    el('shoe-retire').value = shoe ? String(shoe.retireKm).replace('.', ',') : '';
+    el('shoe-since').value = shoe ? shoe.since || '' : '';
+    el('shoe-save').textContent = shoe ? 'Cập nhật giày' : 'Lưu giày';
+    el('shoe-name').focus();
+  }
+  function closeShoeForm() { shoeEdit = ''; el('shoe-form').hidden = true; el('shoe-form').reset(); }
+
+  function onShoeSubmit(e) {
+    e.preventDefault();
+    var data = { name: el('shoe-name').value, startKm: el('shoe-start').value, retireKm: el('shoe-retire').value, since: el('shoe-since').value };
+    var editing = !!shoeEdit;
+    var done = editing ? S.update(shoeEdit, data) : S.create(data);
+    if (!done) { C.toast('Chưa lưu được', 'Nhập tên đôi giày'); return; }
+    closeShoeForm(); shoeArmed = ''; renderShoes();
+    C.toast(editing ? 'Đã cập nhật giày' : 'Đã thêm giày', done.name);
+  }
+
+  // Ghi lần lượt từng buổi: ghi song song nhiều giao dịch IndexedDB trên điện thoại dễ nghẽn.
+  function setShoe(list, id) {
+    return list.reduce(function (p, r) { return p.then(function () { r.shoeId = id; return RL.saveRun(r); }); }, Promise.resolve());
+  }
+
+  function onShoeClick(e) {
+    var btn = e.target.closest ? e.target.closest('[data-sh]') : null, art = btn && btn.closest('[data-id]');
+    if (!art) return;
+    var id = art.getAttribute('data-id'), shoe = S.get(id), act = btn.getAttribute('data-sh');
+    if (!shoe) return;
+    if (act === 'def') {
+      S.setDefault(id);
+    } else if (act === 'edit') {
+      shoeArmed = ''; openShoeForm(shoe); return;
+    } else if (act === 'retire') {
+      S.update(id, { retired: !shoe.retired });
+    } else if (act === 'assign') {
+      if (shoeArmed !== 'asg:' + id) { shoeArmed = 'asg:' + id; renderShoes(); return; }
+      var todo = S.unassigned(runs, shoe.since);
+      shoeArmed = '';
+      setShoe(todo, id).then(function () {
+        renderShoes(); C.toast('Đã gán giày', todo.length + ' buổi cho ' + shoe.name);
+      });
+      return;
+    } else if (act === 'del') {
+      if (shoeArmed !== 'del:' + id) { shoeArmed = 'del:' + id; renderShoes(); return; }
+      S.remove(id);
+      var mine = runs.filter(function (r) { return r.shoeId === id; });   // trở về chưa có giày
+      shoeArmed = '';
+      setShoe(mine, '').then(function () {
+        renderShoes(); C.toast('Đã xóa giày', mine.length ? mine.length + ' buổi trở về chưa có giày' : '');
+      });
+      return;
+    }
+    shoeArmed = '';
+    renderShoes();
+  }
+
   function renderAll() {
     renderWeekRing(); renderStreakDots(); renderStats();
-    renderPR(); renderPredict(); renderReport(); renderAnalysis(); renderMonths(); renderGoals();
+    renderPR(); renderPredict(); renderReport(); renderShoes(); renderAnalysis(); renderMonths(); renderGoals();
   }
 
   function bindEvents() {
     on('ai-run', 'click', runReport);
+    on('shoe-add', 'click', function () { if (el('shoe-form').hidden) openShoeForm(null); else closeShoeForm(); });
+    on('shoe-cancel', 'click', closeShoeForm);
+    on('shoe-form', 'submit', onShoeSubmit);
+    on('shoe-list', 'click', onShoeClick);
     on('goal-add-toggle', 'click', function () { el('goal-form').hidden = !el('goal-form').hidden; });
     on('goal-type', 'change', function () {
       var isPr = el('goal-type').value === 'pr_target';

@@ -49,7 +49,9 @@ window.Blocks = (function (Core, Templates) {
   // Danh sách buổi tập đầy đủ của 1 block, sắp theo ngày — tương đương
   // hàm `all()` trong script.js bản cũ nhưng nhận block làm tham số.
   // Buổi đã sửa/xoá riêng cho block này nằm ở block.edits[sid] (ghi đè
-  // type/title/d/km lên buổi gốc của khuôn) và block.removed[sid]. Khuôn không
+  // type/title/d/km lên buổi gốc của khuôn) và block.removed[sid]. Buổi do app tự
+  // điều chỉnh (js/adapt.js) còn có block.adj[sid] = { ts, why, k } ghi lý do để
+  // hiện nhãn "tự điều chỉnh" và cho hoàn tác. Khuôn không
   // bị đụng tới nên "đặt lại" và "khôi phục" luôn quay về đúng buổi gốc.
   // Mặc định buổi đã xoá bị ẩn khỏi mọi thống kê; opts.includeRemoved trả cả
   // chúng (x.removed = true) để màn hình Lịch tập cho khôi phục.
@@ -73,6 +75,7 @@ window.Blocks = (function (Core, Templates) {
           ['type', 'title', 'd', 'km'].forEach(function (k) { if (ed[k] !== undefined) cur[k] = ed[k]; });
         }
         out.push({ wi: wi, dy: dy, si: si, off: off, s: cur, orig: orig, edited: !!ed, removed: gone,
+                   adj: (ed && block.adj && block.adj[id]) || null,
                    date: dayOf(block, wi, off), id: id });
       });
     });
@@ -81,8 +84,9 @@ window.Blocks = (function (Core, Templates) {
   }
 
   // patch: { type, title, d, km }. Trường nào trùng buổi gốc thì bỏ khỏi bản
-  // ghi đè; không còn gì khác gốc thì coi như chưa sửa.
-  function editSession(block, sid, patch) {
+  // ghi đè; không còn gì khác gốc thì coi như chưa sửa. auto = { why, k } khi
+  // chính app điều chỉnh; người dùng tự sửa thì không truyền, nhãn tự điều chỉnh bị bỏ.
+  function editSession(block, sid, patch, auto) {
     var x = null, list = sessionsOf(block, { includeRemoved: true }).list;
     for (var i = 0; i < list.length; i++) if (list[i].id === sid) { x = list[i]; break; }
     if (!x) return block;
@@ -96,10 +100,16 @@ window.Blocks = (function (Core, Templates) {
     });
     block.edits = block.edits || {};
     if (Object.keys(ed).length) block.edits[sid] = ed; else delete block.edits[sid];
+    if (block.adj) delete block.adj[sid];
+    if (auto && block.edits[sid]) {
+      block.adj = block.adj || {};
+      block.adj[sid] = { ts: Date.now(), why: String(auto.why || '').slice(0, 240), k: auto.k || '' };
+    }
     return save(block);
   }
   function resetSession(block, sid) {
     if (block.edits) delete block.edits[sid];
+    if (block.adj) delete block.adj[sid];
     return save(block);
   }
   function removeSession(block, sid) {

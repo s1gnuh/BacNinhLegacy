@@ -13,6 +13,7 @@
   var blocks = [], runs = [], sel = 'all', calMonth = null, calSel = '';
   // buổi đang sửa / đang chờ xác nhận xóa: "blockId::sessionId", hoặc "run:<id>" cho nhật ký
   var editKey = '', armedKey = '';
+  var adaptItems = [], runsReady = false;
   var zones = null;   // vùng pace gợi ý từ kết quả thực tế (Predict), null khi chưa đủ dữ liệu
 
   /* ================= truy vấn ================= */
@@ -126,6 +127,7 @@
   }
   function actsHtml(key, x) {
     return '<button type="button" class="btn-sm" data-act="edit" data-k="' + key + '">Sửa</button>'
+      + (x.adj ? '<button type="button" class="btn-sm" data-act="reset-edit" data-k="' + key + '">Hoàn tác</button>' : '')
       + (x.s.type === 'race' ? '' : delBtn(key));
   }
 
@@ -161,7 +163,9 @@
     var act = btn.getAttribute('data-act'), key = btn.getAttribute('data-k') || '';
     var b;
 
-    if (act === 'edit') {
+    if (act === 'adapt' || act === 'adapt-all') {
+      applyAdapt(act === 'adapt' ? [adaptItems[Number(key)]] : adaptItems.slice());
+    } else if (act === 'edit') {
       var en = entryOf(key);
       if (!en) return;
       armedKey = ''; editKey = key;
@@ -249,13 +253,14 @@
           + ' aria-label="Đã chạy ' + C.esc(e.x.s.title) + '">'
           + '<span class="chip t-' + e.x.s.type + '">' + C.LABEL[e.x.s.type] + '</span>'
           + '<span class="cdt">' + C.esc(e.x.s.title) + '</span>'
-          + (e.x.edited ? '<span class="tag-edited">đã sửa</span>' : '')
+          + (e.x.edited ? '<span class="tag-edited">' + (e.x.adj ? 'tự điều chỉnh' : 'đã sửa') + '</span>' : '')
           + (multi ? '<span class="hint">' + C.esc(raceName(e.b)) + '</span>' : '')
           + '<span class="cdb-acts">' + actsHtml(key, e.x) + '</span>'
           + '<span class="kmv num">' + C.fmtKm(e.x.s.km) + ' km</span>'
           + '</div>'
           + (editKey === key ? editorHtml(key, e.x)
               : (e.x.s.d ? '<p class="cdn">' + C.esc(e.x.s.d) + '</p>' : '')
+                + (e.x.adj ? '<p class="cdn adj-why">' + C.esc(e.x.adj.why) + '</p>' : '')
                 + (dn || !window.Predict.hintFor(e.x.s.type, zones) ? ''
                     : '<p class="cdn pace-hint">' + C.esc(window.Predict.hintFor(e.x.s.type, zones)) + '</p>'));
       }).join('');
@@ -312,7 +317,7 @@
                 + ' aria-label="Đã chạy ' + C.esc(x.s.title) + '">')
           + '<div class="day"><b>' + C.WD[(x.date.getDay() + 6) % 7] + '</b><span class="num">' + C.fmt(x.date) + '</span></div>'
           + '<div class="what"><strong>' + C.esc(x.s.title) + '</strong>'
-          + (x.edited ? '<span class="tag-edited">đã sửa</span>' : '')
+          + (x.edited ? '<span class="tag-edited">' + (x.adj ? 'tự điều chỉnh' : 'đã sửa') + '</span>' : '')
           + (x.s.d ? '<p>' + C.esc(x.s.d) + '</p>' : '')
           + (x.s.type === 'rest' ? '' : '<div class="row-acts">' + actsHtml(one.id + SEP + x.id, x) + '</div>')
           + '<details class="note-box"><summary>Ghi chú</summary>'
@@ -339,6 +344,47 @@
     box.innerHTML = html;
   }
 
+  /* ================= gợi ý chỉnh giáo án ================= */
+  function renderAdapt() {
+    var wrap = el('p-adapt');
+    if (!wrap) return;
+    var unfinished = selected();
+    wrap.hidden = !runsReady || !unfinished.length;
+    if (wrap.hidden) return;
+    adaptItems = [];
+    unfinished.forEach(function (b) {
+      window.Adapt.propose(b, runs).forEach(function (it) { adaptItems.push(it); });
+    });
+    el('p-adapt-auto').checked = window.Adapt.isAuto();
+    el('p-adapt-all').hidden = adaptItems.length < 2;
+    el('p-adapt-sum').textContent = adaptItems.length
+      ? adaptItems.length + ' gợi ý dựa trên nhịp tập gần đây của bạn.'
+      : (runs.length ? 'Giáo án đang khớp với nhịp tập và khả năng hiện tại, chưa có gợi ý nào.'
+                     : 'Nhập vài buổi chạy ở tab Nhập nhanh để app có cơ sở gợi ý.');
+    el('p-adapt-list').innerHTML = adaptItems.map(function (it, i) {
+      var b = B.get(it.blockId);
+      return '<article class="adapt-item lv-' + it.level + '">'
+        + '<div class="adapt-top"><strong>' + C.esc(it.title) + '</strong>'
+        + '<span class="chip ' + (it.level === 'high' ? 'conf-lo' : it.level === 'info' ? 'conf-hi' : 'conf-mid') + '">' + it.changes.length + ' buổi</span></div>'
+        + (blocks.length > 1 && b ? '<p class="hint">' + C.esc(raceName(b)) + '</p>' : '')
+        + '<p class="adapt-why">' + C.esc(it.why) + '</p>'
+        + '<ul class="adapt-diff">' + it.changes.map(function (c) { return '<li>' + C.esc(c.line) + '</li>'; }).join('') + '</ul>'
+        + '<button type="button" class="btn-sm primary" data-act="adapt" data-k="' + i + '">' + (it.restore ? 'Khôi phục' : 'Áp dụng') + '</button>'
+        + '</article>';
+    }).join('');
+  }
+
+  function applyAdapt(items) {
+    var n = 0;
+    items.forEach(function (it) {
+      if (!it) return;
+      var r = window.Adapt.applyItem(B.get(it.blockId), it);
+      syncBlock(r.block); n += r.n;
+    });
+    renderAll();
+    C.toast(n ? 'Đã chỉnh ' + n + ' buổi' : 'Không có gì để chỉnh', n ? 'Bấm Hoàn tác ở từng buổi nếu muốn quay lại' : '');
+  }
+
   /* ================= ăn mừng ================= */
   function celebrate(b, sid, anchor) {
     var x = B.findSession(b, sid);
@@ -358,8 +404,8 @@
     var has = blocks.length > 0;
     el('p-empty').hidden = has;
     el('p-cal-wrap').hidden = !has;
-    if (!has) { el('p-weeks-wrap').hidden = true; el('p-removed-wrap').hidden = true; return; }
-    renderCal(); renderDay(); renderWeeks(); renderRemoved();
+    if (!has) { el('p-weeks-wrap').hidden = true; el('p-removed-wrap').hidden = true; el('p-adapt').hidden = true; return; }
+    renderCal(); renderDay(); renderWeeks(); renderRemoved(); renderAdapt();
   }
 
   function markDone(key, checked, anchor) {
@@ -398,6 +444,13 @@
     });
 
     document.addEventListener('click', onAct);
+    on('p-adapt-auto', 'change', function (e) {
+      window.Adapt.setAuto(e.target.checked);
+      if (e.target.checked && runsReady) {
+        if (window.Adapt.auto(runs)) blocks = B.list();
+        renderAll();
+      }
+    });
 
     // đánh dấu đã chạy — dùng chung cho cả chi tiết ngày và lịch tuần
     document.addEventListener('change', function (e) {
@@ -425,8 +478,10 @@
     renderAll();
     RL.loadRuns().then(function (all) {
       runs = all;
+      runsReady = true;
       zones = window.Predict.compute(all).zones;
-      renderCal(); renderDay();
+      if (window.Adapt.auto(all)) blocks = B.list();
+      renderAll();
     });
     C.registerSW();
   }

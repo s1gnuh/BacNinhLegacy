@@ -33,6 +33,15 @@
     <p class="hint" id="p-sum"></p>
   </section>
 
+  <section class="panel" id="p-adapt" hidden>
+    <h2>Gợi ý chỉnh giáo án</h2>
+    <p class="hint" id="p-adapt-sum"></p>
+    <div class="adapt-list" id="p-adapt-list"></div>
+    <div class="panel-actions"><button type="button" class="btn-sm primary" id="p-adapt-all" data-act="adapt-all" hidden>Áp dụng tất cả</button></div>
+    <label class="qe-link"><input type="checkbox" id="p-adapt-auto"><span>Tự động áp dụng gợi ý mỗi khi mở app</span></label>
+    <p class="hint">Dựa trên số km tuần qua so với kế hoạch và pace dự đoán từ kết quả của bạn. Chỉ đụng tới buổi chưa chạy và chưa do bạn tự sửa, không đụng buổi thi đấu. Buổi được chỉnh có nhãn "tự điều chỉnh" và nút Hoàn tác.</p>
+  </section>
+
   <section class="panel" id="p-empty" hidden>
     <h2>Chưa có giáo án nào</h2>
     <p class="hint">Giáo án được sinh ra khi bạn tạo một giải và chọn khuôn giáo án. Sang <a href="index.html">trang chủ</a> để tạo giải đầu tiên, hoặc cứ nhập buổi chạy tự do ở tab <a href="log.html">Nhập nhanh</a> — PR và streak vẫn được tính bình thường.</p>
@@ -82,7 +91,9 @@
 <script src="js/blocks.js"></script>
 <script src="js/races.js"></script>
 <script src="js/runlog.js"></script>
+<script src="js/sync.js"></script>
 <script src="js/predict.js"></script>
+<script src="js/adapt.js"></script>
 <script src="js/plan-page.js"></script>
 </body>
 </html>

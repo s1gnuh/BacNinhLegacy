@@ -43,17 +43,41 @@ window.RunLog = (function (Core) {
              date: r.date || '', km: r.km || '', pace: r.pace || '', time: r.time || '',
              title: r.title || '', kind: r.kind || 'run', cat: r.cat === 'photo' ? 'photo' : 'strava',
              blockId: r.blockId || '', sessionId: r.sessionId || '', raceId: r.raceId || '',
-             note: r.note || '', added: r.added || 0,
+             note: r.note || '', added: r.added || 0, shoeId: r.shoeId || '',
              msg: '', busy: false, zoom: false, armed: false, saved: 0, expanded: false };
   }
   function record(l) {
     return { id: l.id, blob: l.blob, date: l.date, km: l.km, pace: l.pace, time: l.time, title: l.title,
              kind: l.kind, cat: l.cat, blockId: l.blockId, sessionId: l.sessionId, raceId: l.raceId,
-             note: l.note, added: l.added };
+             note: l.note, added: l.added, shoeId: l.shoeId || '' };
   }
 
-  function saveRun(l) { return idbRun('readwrite', function (st) { return st.put(record(l)); }); }
-  function removeRun(id) { return idbRun('readwrite', function (st) { return st.delete(id); }); }
+  // Móc cho js/sync.js: gọi sau mỗi lần ghi/xoá thành công, trừ khi opts.silent
+  // (chính sync đang áp dữ liệu từ máy khác về nên không tính là sửa cục bộ).
+  var listener = null;
+  function watch(fn) { listener = fn; }
+  function emit(ev, opts) {
+    if (listener && !(opts && opts.silent)) { try { listener(ev); } catch (e) {} }
+  }
+
+  function saveRun(l, opts) {
+    return idbRun('readwrite', function (st) { return st.put(record(l)); }).then(function (ok) {
+      if (ok !== null) emit({ type: 'put', run: record(l) }, opts);
+      return ok;
+    });
+  }
+  function removeRun(id, opts) {
+    return idbRun('readwrite', function (st) { return st.delete(id); }).then(function (ok) {
+      if (ok !== null) emit({ type: 'del', id: id }, opts);
+      return ok;
+    });
+  }
+  // Bản ghi thô (có blob, không tạo URL) để đồng bộ đọc/ghi mà không rò URL.
+  function rawAll() {
+    return idbRun('readonly', function (st) { return st.getAll(); }).then(function (rows) {
+      return Array.isArray(rows) ? rows.filter(function (r) { return r && r.id; }) : [];
+    });
+  }
   function loadRuns() {
     return idbRun('readonly', function (st) { return st.getAll(); }).then(function (rows) {
       // Bản ghi nhập tay không có ảnh (blob rỗng) vẫn là một buổi chạy hợp lệ.
@@ -169,6 +193,7 @@ window.RunLog = (function (Core) {
   return {
     KIND: KIND, PR_BUCKETS: PR_BUCKETS,
     openDB: openDB, saveRun: saveRun, removeRun: removeRun, loadRuns: loadRuns,
+    watch: watch, rawAll: rawAll,
     shrink: shrink, newRun: newRun, hydrate: hydrate, autoLink: autoLink,
     parseTime: parseTime, formatTime: formatTime,
     computePRs: computePRs, computeStreak: computeStreak,

@@ -64,6 +64,23 @@
     <p class="hint" id="ai-status"></p>
   </section>
 
+  <section class="panel" id="shoes">
+    <div class="sec-head"><h2>Giày chạy</h2><button type="button" class="btn-sm" id="shoe-add">+ Thêm giày</button></div>
+    <p class="hint" id="shoe-sum"></p>
+    <form id="shoe-form" class="shoe-form" hidden>
+      <label class="fld wide"><span>Tên đôi giày</span><input type="text" id="shoe-name" maxlength="40" autocomplete="off" placeholder="Nike Pegasus 41" required></label>
+      <label class="fld"><span>Đã chạy trước đó (km)</span><input type="text" inputmode="decimal" id="shoe-start" autocomplete="off" placeholder="0"></label>
+      <label class="fld"><span>Nên thay sau (km)</span><input type="text" inputmode="decimal" id="shoe-retire" autocomplete="off" placeholder="700"></label>
+      <label class="fld"><span>Dùng từ ngày (không bắt buộc)</span><input type="date" id="shoe-since"></label>
+      <div class="lg-actions">
+        <button type="submit" class="btn-sm primary" id="shoe-save">Lưu giày</button>
+        <button type="button" class="btn-sm" id="shoe-cancel">Hủy</button>
+      </div>
+    </form>
+    <div class="shoe-list" id="shoe-list"></div>
+    <p class="hint">Km của mỗi đôi = km đã chạy trước đó + các buổi bạn gắn với nó ở tab Nhập nhanh (chạy và đi bộ, không tính môn khác). Ngưỡng 700 km là mức thường được khuyên cho giày đường nhựa; giày nhẹ hoặc đế mòn nhanh nên thay sớm hơn.</p>
+  </section>
+
   <section class="panel" id="analysis">
     <h2>Phân tích xu hướng</h2>
     <div class="chart" id="trend-chart" role="img" aria-label="Biểu đồ km 8 tuần gần nhất"></div>
@@ -106,7 +123,9 @@
 <script src="js/blocks.js"></script>
 <script src="js/races.js"></script>
 <script src="js/runlog.js"></script>
+<script src="js/sync.js"></script>
 <script src="js/goals.js"></script>
+<script src="js/shoes.js"></script>
 <script src="js/predict.js"></script>
 <script src="js/vision.js"></script>
 <script src="js/migrate.js"></script>

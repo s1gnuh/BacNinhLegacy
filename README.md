@@ -95,6 +95,28 @@ API key nằm trong `localStorage` của trình duyệt, gửi thẳng cho Googl
 - Các thay đổi này nằm trong `block.edits` / `block.removed`, khuôn gốc không bị đụng tới.
 - Nhật ký chạy của ngày đang chọn cũng có **Sửa** (mở form Nhập nhanh) và **Xóa**.
 
+### Tự điều chỉnh giáo án (`js/adapt.js`, panel đầu trang Lịch tập)
+
+Quy tắc minh bạch, không dùng AI. Chỉ đụng tới buổi **chưa chạy**, không đụng buổi thi đấu, tuần thi đấu cuối và buổi bạn tự sửa. Mỗi gợi ý có lý do, danh sách buổi sẽ đổi và nút **Áp dụng**; bật ô **Tự động áp dụng** thì app tự áp mỗi khi mở (mặc định tắt).
+
+- **Khối lượng, 7 ngày tới**: nghỉ từ 10 ngày thì về khoảng 55% kế hoạch; tuần qua chạy dưới 60% kế hoạch thì về khoảng 110% số đã chạy (không dưới 75% kế hoạch); tuần qua nhiều hơn 30% / 50% so với trung bình 4 tuần trước thì giảm 8% / 15%. Giảm nặng (còn 80% trở xuống) còn đổi buổi chất lượng thành chạy nhẹ. Hết điều kiện thì gợi ý **khôi phục** buổi gốc. Luôn tính trên km gốc nên chạy lại nhiều lần không giảm chồng.
+- **Pace, 21 ngày tới**: so pace ghi sẵn trong buổi ("Pace 7:40–8:30", "5 × 3 phút @ 6:40") với vùng pace suy từ dự đoán 10K. Chỉ sửa khi lệch quá 5% (chạy nhẹ) hoặc 3–4% (chất lượng), mỗi lần tối đa 15%, và chỉ khi độ tin cậy dự đoán không phải "thấp".
+- Buổi được chỉnh có nhãn "tự điều chỉnh", lý do hiện dưới buổi, và nút **Hoàn tác** về bản gốc. Thay đổi nằm trong `block.edits` + `block.adj`.
+
+### Giày chạy (`js/shoes.js`, panel trong Thống kê)
+
+Mỗi đôi có tên, km đã chạy trước khi dùng app, ngưỡng nên thay (mặc định 700 km) và ngày bắt đầu dùng. Ở Nhập nhanh, mỗi buổi chạy / đi bộ chọn được giày (mặc định là đôi được đặt mặc định; nhập hàng loạt chọn một đôi cho cả lô). Km của đôi giày được tính lại từ nhật ký mỗi lần nên sửa hoặc xóa buổi luôn cho số đúng. Từ 80% ngưỡng hiện "Sắp thay", vượt 100% hiện "Nên thay", và khi một buổi vừa lưu làm đôi giày chạm mốc thì app báo ngay. Có ước tính số tuần còn dùng được theo nhịp 4 tuần gần nhất, nút **Gán các buổi chưa có giày** cho dữ liệu cũ, và **Cho nghỉ** để giữ lịch sử mà ẩn khỏi danh sách chọn.
+
+### Đồng bộ nhiều thiết bị (`js/sync.js`, `api/sync.js`, panel trong Cài đặt)
+
+Thay cho việc xuất / nhập file JSON thủ công. Máy chính bấm **Bật đồng bộ** sẽ nhận một mã 20 ký tự; máy khác nhập mã (hoặc mở liên kết kết nối) là dữ liệu về, dữ liệu sẵn có trên máy đó được **gộp** chứ không bị xóa.
+
+- App tự đồng bộ khi mở, khi quay lại app, sau mỗi lần sửa (chờ 3 giây), khi có mạng lại và mỗi phút khi đang mở. Máy kia nhận dữ liệu mới thì trang tự tải lại (hoặc hiện nút "Tải lại" nếu bạn đang ở trang có form).
+- Dữ liệu được cắt thành các đơn vị nhỏ (một giải, một buổi chạy, một mục tiêu, một đôi giày, và với giáo án thì từng ô đã đánh dấu / ghi chú / buổi đã sửa) nên hai máy cùng đánh dấu hai buổi khác nhau thì cả hai đều được giữ. Cùng một đơn vị bị sửa ở hai máy thì bản sửa **sau** thắng; xóa để lại "bia mộ" giữ 120 ngày.
+- **Ảnh không đồng bộ** (quá nặng cho kho miễn phí): ảnh ở máy nào ở lại máy đó, số liệu buổi chạy thì đi khắp nơi. Giao diện sáng/tối, nhắc chạy và khóa Gemini là riêng từng máy.
+- Máy chủ chỉ lưu hash của mã; ai có mã đều đọc và sửa được dữ liệu, nên đừng đăng mã công khai. Nhập mã sai không tạo ra không gian mới mà báo lỗi. Có nút tắt đồng bộ ở máy này và nút xóa toàn bộ dữ liệu trên máy chủ.
+- Cần Upstash Redis đã nối với Vercel (cùng kho với thông báo đẩy), không cần biến môi trường nào thêm. iPhone: Safari và app đã thêm vào màn hình chính có kho dữ liệu riêng, đồng bộ cũng nối được hai bên.
+
 ### Động lực
 
 **Pháo hoa ăn mừng** khi đánh dấu xong một buổi, to dần theo mức độ: buổi nhẹ → chất lượng/dài → trọn một tuần → mốc 25/50/75% giáo án → ngày thi đấu. Tự tắt khi hệ điều hành bật chế độ giảm chuyển động.
@@ -122,7 +144,7 @@ Mặc định mọi thứ nằm trong trình duyệt của bạn:
 
 **Khi bật nhắc chạy bằng push**, một phần dữ liệu được gửi lên máy chủ và lưu trong Upstash Redis: danh sách ngày tập (gộp từ mọi block active) kèm tên buổi và cờ đã-chạy, múi giờ, giờ nhắc, và địa chỉ đăng ký nhận thông báo của trình duyệt. **Ảnh không bao giờ rời khỏi máy bạn.** Tắt nhắc nhở thì bản ghi đó bị xoá khỏi máy chủ.
 
-Sao lưu / khôi phục bằng file JSON ở trang Cài đặt (gồm cả buổi nhập tay không có ảnh). API key Gemini cố ý không nằm trong file sao lưu.
+Sao lưu / khôi phục bằng file JSON ở trang Cài đặt (gồm cả buổi nhập tay không có ảnh và danh sách giày). API key Gemini và mã đồng bộ cố ý không nằm trong file sao lưu. Bật đồng bộ nhiều thiết bị thì số liệu (không có ảnh) còn được lưu thêm trên Upstash Redis, xem mục Đồng bộ ở trên.
 
 ### Chuyển đổi dữ liệu cũ (migrate)
 
@@ -150,6 +172,9 @@ js/
   runlog.js         nhật ký chạy (ảnh không bắt buộc) trong IndexedDB, tính PR và streak
   vision.js         đọc ảnh Strava bằng Gemini (km, pace, thời gian, ngày) và viết báo cáo AI
   predict.js        dự đoán thời gian 5/10/21/42K và vùng pace từ nhật ký
+  adapt.js          gợi ý và tự điều chỉnh khối lượng, pace của giáo án
+  shoes.js          quản lý giày chạy, tính km và mức mòn
+  sync.js           đồng bộ nhiều thiết bị qua /api/sync
   log-page.js       trang Nhập nhanh (log.html)
   plan-page.js      trang Lịch tập (plan.html), gồm sửa/xóa buổi
   goals.js          mục tiêu cá nhân + tính tiến độ
@@ -164,6 +189,7 @@ api/               serverless function trên Vercel
   cron.js            chạy hằng ngày, đẩy thông báo nhắc chạy
   test-push.js       bắn thử một thông báo ngay lập tức
   health.js          báo xem máy chủ đã cấu hình đủ chưa
+  sync.js            nhận và trả các đơn vị dữ liệu để đồng bộ nhiều thiết bị
 lib/store.js       kho subscription trên Upstash Redis
 vercel.json        header cache và lịch cron
 package.json       dependency cho phần api/ (web-push, @upstash/redis)

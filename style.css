@@ -576,3 +576,40 @@ a.btn-sm:hover { border-color: var(--fg); }
 .ai-body h3:first-child { margin-top: 0; }
 .ai-body p, .ai-body li { font-size: 14px; line-height: 1.55; }
 .pace-hint { color: var(--easy); border-left-color: var(--easy); }
+
+/* ===== Giày chạy ===== */
+:root { --bad: #C8372D; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bad: #FF7A70; } }
+:root[data-theme="dark"] { --bad: #FF7A70; }
+.shoe-list { display: flex; flex-direction: column; gap: 10px; }
+.shoe { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; background: var(--bg); }
+.shoe.retired { opacity: .7; }
+.shoe-top { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.shoe-km { margin-left: auto; font-family: var(--font-display); font-size: 18px; font-weight: 600; }
+.shoe-bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.shoe-bar i { display: block; height: 100%; border-radius: 4px; transition: width .5s cubic-bezier(.2,.8,.2,1); }
+.shoe-bar i.ok { background: var(--easy); }
+.shoe-bar i.warn { background: var(--quality); }
+.shoe-bar i.over { background: var(--bad); }
+.chip.shoe-ok { background: var(--easy-bg); color: var(--easy); }
+.chip.shoe-warn { background: var(--quality-bg); color: var(--quality); }
+.chip.shoe-over { background: var(--bad); color: #fff; }
+.shoe-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.shoe-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+.shoe-form .wide, .shoe-form .lg-actions { grid-column: 1 / -1; }
+.qb-shoe { max-width: 320px; }
+
+/* ===== Đồng bộ nhiều thiết bị ===== */
+.sy-join { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.sy-codebox { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; }
+.sy-code { font-family: var(--font-display); font-size: 20px; font-weight: 600; letter-spacing: .06em; word-break: break-all; }
+.sync-banner { position: fixed; left: 16px; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 40; display: flex; gap: 12px; align-items: center; justify-content: space-between; background: var(--surface); border: 1px solid var(--easy); border-radius: 12px; padding: 10px 14px; box-shadow: 0 6px 24px rgba(14,37,81,.18); font-size: 14px; }
+
+/* ===== Gợi ý chỉnh giáo án ===== */
+.adapt-list { display: flex; flex-direction: column; gap: 10px; }
+.adapt-item { border: 1px solid var(--line); border-left: 4px solid var(--easy); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; background: var(--bg); }
+.adapt-item.lv-high { border-left-color: var(--quality); }
+.adapt-top { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.adapt-why { margin: 0; font-size: 14px; line-height: 1.5; }
+.adapt-diff { margin: 0; padding-left: 18px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+.adj-why { color: var(--quality); border-left-color: var(--quality); }

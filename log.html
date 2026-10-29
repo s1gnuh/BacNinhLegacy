@@ -58,12 +58,14 @@
           <option value="other">Khác</option>
         </select>
       </label>
+      <label class="fld" id="qe-shoe-wrap" hidden><span>Giày</span><select id="qe-shoe"></select></label>
       <label class="fld"><span>Khoảng cách (km)</span><input type="text" id="qe-km" inputmode="decimal" autocomplete="off" placeholder="5,00"></label>
       <label class="fld"><span>Pace (phút/km)</span><input type="text" id="qe-pace" inputmode="numeric" autocomplete="off" placeholder="6:30"></label>
       <label class="fld"><span>Thời gian</span><input type="text" id="qe-time" inputmode="numeric" autocomplete="off" placeholder="32:30"></label>
       <label class="fld wide"><span>Chú thích</span><input type="text" id="qe-note" autocomplete="off" placeholder="Cảm giác, thời tiết, đau mỏi..."></label>
     </div>
     <p class="hint" id="qe-calc"></p>
+    <p class="hint" id="qe-shoe-hint"></p>
 
     <label class="qe-link" id="qe-link" hidden>
       <input type="checkbox" id="qe-link-cb" checked>
@@ -80,6 +82,7 @@
     <div class="sec-head"><h2>Nhập hàng loạt</h2><span class="hint" id="qb-sum"></span></div>
     <p class="hint" id="qb-note"></p>
     <div class="qb-list" id="qb-list"></div>
+    <label class="fld qb-shoe" id="qb-shoe-wrap" hidden><span>Giày cho các buổi chạy / đi bộ này</span><select id="qb-shoe"></select></label>
     <label class="qe-link"><input type="checkbox" id="qb-link" checked><span>Đánh dấu xong buổi tương ứng trong Lịch tập theo ngày</span></label>
     <div class="lg-actions">
       <button type="button" class="btn-sm primary" id="qb-save">Lưu tất cả</button>
@@ -105,6 +108,8 @@
 <script src="js/templates.js"></script>
 <script src="js/blocks.js"></script>
 <script src="js/runlog.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/shoes.js"></script>
 <script src="js/vision.js"></script>
 <script src="js/log-page.js"></script>
 </body>

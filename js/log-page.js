@@ -4,7 +4,7 @@
 // số còn lại nên chỉ cần nhập hai.
 (function () {
   'use strict';
-  var C = window.Core, RL = window.RunLog, B = window.Blocks, V = window.Vision;
+  var C = window.Core, RL = window.RunLog, B = window.Blocks, V = window.Vision, S = window.Shoes;
   var el = function (id) { return document.getElementById(id); };
   var on = function (id, ev, fn) { var n = el(id); if (n) n.addEventListener(ev, fn); };
   var NUM = ['km', 'pace', 'time'];
@@ -150,6 +150,37 @@
     if (linkTarget) el('qe-link-t').textContent = 'Đánh dấu xong buổi "' + linkTarget.x.s.title + '" trong Lịch tập';
   }
 
+  /* ================= giày ================= */
+  // Ô chọn giày chỉ hiện khi đã có ít nhất một đôi; chưa có thì gợi ý nơi thêm.
+  function renderShoe(selected) {
+    var has = S.list().length > 0, kind = el('qe-kind').value;
+    el('qe-shoe-wrap').hidden = !has;
+    el('qe-shoe').disabled = kind === 'other';
+    if (selected !== undefined) el('qe-shoe').innerHTML = S.optionsHtml(selected, 'Không chọn');
+    shoeHint();
+  }
+  function shoeHint() {
+    var n = el('qe-shoe-hint'), id = el('qe-shoe').value;
+    if (!S.list().length) { n.innerHTML = 'Muốn theo dõi độ mòn giày? Thêm đôi giày ở tab <a href="stats.html#shoes">Thống kê</a>.'; return; }
+    var shoe = id && S.get(id);
+    if (!shoe || el('qe-kind').value === 'other') { n.textContent = ''; return; }
+    var st = S.stat(shoe, S.usage(runs)[id]);
+    n.textContent = shoe.name + ': ' + C.fmtKm(st.total) + '/' + C.fmtKm(st.retire) + ' km'
+      + (st.level === 'ok' ? '' : st.level === 'warn' ? ' · sắp đến lúc thay' : ' · đã quá ngưỡng nên thay');
+  }
+  function shoeNote(r) {
+    var ss = r.shoeId && S.get(r.shoeId);
+    return ss ? ' · ' + C.esc(ss.name) : '';
+  }
+  // Báo khi buổi vừa lưu làm đôi giày chạm mốc cảnh báo.
+  function shoeAlert(r) {
+    var shoe = r.shoeId && S.get(r.shoeId);
+    if (!shoe) return '';
+    var hit = S.crossed(shoe, S.usage(runs)[r.shoeId], Number(r.km) || 0);
+    if (!hit) return '';
+    return shoe.name + (hit.level === 'over' ? ' đã vượt ' : ' đã đạt 80% của ') + C.fmtKm(hit.retire) + ' km, nên cân nhắc thay giày';
+  }
+
   /* ================= form ================= */
   function updateSave() {
     var b = el('qe-save');
@@ -164,6 +195,7 @@
     dateTouched = false;
     ['km', 'pace', 'time', 'note'].forEach(function (f) { setVal(f, ''); });
     el('qe-kind').value = 'run';
+    renderShoe(S.defaultId());
     setVal('date', d || C.iso(C.today0()));
     el('qe-file').value = '';
     dropPhoto();
@@ -180,6 +212,7 @@
     dateTouched = true;
     setVal('date', r.date);
     el('qe-kind').value = r.kind || 'run';
+    renderShoe(r.shoeId || '');
     setVal('km', r.km); setVal('pace', r.pace); setVal('time', r.time); setVal('note', r.note);
     if (r.url) {
       photo = { url: r.url, blobP: Promise.resolve(r.blob), changed: false, own: false };
@@ -225,6 +258,7 @@
       r.kind = el('qe-kind').value;
       r.km = km; r.pace = pace; r.time = time;
       r.note = val('note');
+      r.shoeId = r.kind === 'other' ? '' : el('qe-shoe').value;
       r.cat = (km || pace || time) ? 'strava' : 'photo';
       if (!photo) {
         if (r.url && editing) { try { URL.revokeObjectURL(r.url); } catch (e) {} }
@@ -239,8 +273,9 @@
         if (ok === null) { C.toast('Không lưu được', 'Kiểm tra dung lượng trình duyệt'); return; }
         if (wasNew) runs.unshift(r);
         if (t) { B.setDone(t.b, t.x.id, true); celebrate(t, btn); }
-        C.toast(wasNew ? 'Đã lưu buổi chạy' : 'Đã cập nhật',
-                (r.km ? r.km + ' km' : '') + (r.km && r.time ? ' · ' : '') + (r.time || ''));
+        var base = (r.km ? r.km + ' km' : '') + (r.km && r.time ? ' · ' : '') + (r.time || '');
+        var warn = wasNew ? shoeAlert(r) : '';
+        C.toast(wasNew ? 'Đã lưu buổi chạy' : 'Đã cập nhật', warn || base);
         resetForm(true);
         renderRecent();
         showStorage();
@@ -260,7 +295,7 @@
   function cardHtml(l) {
     var d = l.date ? C.fromIso(l.date) : null;
     var top = d ? C.WD[(d.getDay() + 6) % 7] + ', ' + C.fmt(d) + '/' + d.getFullYear() : 'Không rõ ngày';
-    var tags = RL.KIND[l.kind] && l.kind !== 'run' ? ' · ' + RL.KIND[l.kind] : '';
+    var tags = (RL.KIND[l.kind] && l.kind !== 'run' ? ' · ' + RL.KIND[l.kind] : '') + shoeNote(l);
     var bits = [];
     if (l.km) bits.push(l.km + ' km');
     if (l.time) bits.push(l.time);
@@ -449,6 +484,8 @@
       }
       el('qe').hidden = true;
       el('qb').hidden = false;
+      el('qb-shoe-wrap').hidden = !S.list().length;
+      el('qb-shoe').innerHTML = S.optionsHtml(S.defaultId(), 'Không chọn');
       el('qb-note').textContent = V.hasKey() ? 'Gemini đọc từng ảnh. Soát lại số liệu rồi bấm lưu.'
         : 'Chưa có API key Gemini nên không tự đọc được. Thêm ở Cài đặt, hoặc nhập tay từng dòng.';
     }
@@ -496,6 +533,7 @@
         return row.blobP.then(function (blob) {
           var r = RL.newRun({ blob: blob });
           r.date = date; r.kind = rowVal(row.id, 'kind') || 'run'; r.km = km; r.pace = pace; r.time = time;
+          r.shoeId = r.kind === 'other' ? '' : el('qb-shoe').value;
           r.cat = (km || pace || time) ? 'strava' : 'photo';
           // đi bộ / môn khác không được tính là buổi trong giáo án chạy
           var t = link && r.cat === 'strava' && r.kind === 'run' ? candidateFor(date) : null;
@@ -510,7 +548,9 @@
       });
     }, Promise.resolve()).then(function () {
       if (saved) {
-        C.toast('Đã lưu ' + saved + ' buổi chạy', (linked ? linked + ' buổi được đánh dấu trong Lịch tập' : '') + (failed ? (linked ? ' · ' : '') + failed + ' dòng lỗi' : ''));
+        var sid = el('qb-shoe').value, shoe = sid && S.get(sid), sst = shoe && S.stat(shoe, S.usage(runs)[sid]);
+        var sw = sst && sst.level !== 'ok' ? shoe.name + (sst.level === 'over' ? ' đã vượt ' : ' đã đạt 80% của ') + C.fmtKm(sst.retire) + ' km' : '';
+        C.toast('Đã lưu ' + saved + ' buổi chạy', [linked ? linked + ' buổi được đánh dấu trong Lịch tập' : '', failed ? failed + ' dòng lỗi' : '', sw].filter(Boolean).join(' · '));
         if (linked) C.FX.party(linked > 1 ? 'week' : 'easy', btn);
       }
       renderRecent(); showStorage();
@@ -567,7 +607,8 @@
       field(f).addEventListener('input', function () { delete auto[f]; recalc(); });
     });
     on('qe-date', 'change', function () { dateTouched = true; refreshLink(); });
-    on('qe-kind', 'change', refreshLink);
+    on('qe-kind', 'change', function () { refreshLink(); renderShoe(); });
+    on('qe-shoe', 'change', shoeHint);
     on('qe-save', 'click', save);
     on('qe-cancel', 'click', function () { resetForm(true); });
     on('qe-recent', 'click', onRecentClick);
@@ -594,6 +635,7 @@
       runs = all;
       renderRecent();
       showStorage();
+      shoeHint();
       var id = C.qs('edit'), r = id && findRun(id);
       if (r) startEdit(r);
     });

@@ -276,6 +276,7 @@
       return RL.loadRuns();
     }).then(function (all) {
       runs = all;
+      if (window.Adapt) window.Adapt.auto(all);   // chế độ tự điều chỉnh giáo án (nếu đã bật ở Lịch tập)
       renderAll();
       window.Notify.init();
     });
