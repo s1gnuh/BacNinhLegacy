@@ -13,7 +13,9 @@ window.Vision = (function (Core) {
   var PROMPT = 'Ảnh chụp màn hình hoạt động chạy trên Strava. Đọc 3 số liệu: '
     + 'km = quãng đường theo km (số thập phân, dấu chấm); '
     + 'pace = tốc độ trung bình theo phút/km, dạng m:ss; '
-    + 'time = thời gian di chuyển, dạng m:ss hoặc h:mm:ss. '
+    + 'time = thời gian di chuyển, dạng m:ss hoặc h:mm:ss; '
+    + 'date = ngày diễn ra hoạt động dạng YYYY-MM-DD nếu ảnh có ghi ngày '
+    + '(thiếu năm thì lấy năm ' + new Date().getFullYear() + '). '
     + 'Số liệu nào không thấy trong ảnh thì để chuỗi rỗng (km để 0).';
 
   var SCHEMA = {
@@ -21,10 +23,19 @@ window.Vision = (function (Core) {
     properties: {
       km: { type: 'NUMBER' },
       pace: { type: 'STRING' },
-      time: { type: 'STRING' }
+      time: { type: 'STRING' },
+      date: { type: 'STRING' }
     },
-    required: ['km', 'pace', 'time']
+    required: ['km', 'pace', 'time', 'date']
   };
+
+  var REPORT_PROMPT = 'Bạn là huấn luyện viên chạy bộ, viết tiếng Việt, giọng thân thiện và ngắn gọn. '
+    + 'Chỉ dựa vào JSON số liệu bên dưới. Các số dự đoán (du_doan) và pace gợi ý (pace_goi_y) đã được app tính sẵn: '
+    + 'hãy dùng đúng các số đó, không tự bịa hay đổi số. Không đưa lời khuyên y tế; nếu có dấu hiệu chấn thương '
+    + 'thì khuyên gặp bác sĩ. Dữ liệu ít hoặc độ tin cậy thấp thì nói rõ điều đó. '
+    + 'Viết đúng 5 mục, mỗi mục có tiêu đề dạng "## Tên mục" rồi 2 đến 4 gạch đầu dòng bắt đầu bằng "- ": '
+    + '## Tổng quan, ## Điểm mạnh, ## Cần lưu ý, ## Dự đoán và chiến lược (nhắc giải sắp thi nếu có), '
+    + '## Gợi ý tuần tới. Tối đa 300 từ, không dùng bảng.\n\nSố liệu:\n';
 
   function getKey() { return (Core.store.get(K_KEY) || '').trim(); }
   function getModel() { return (Core.store.get(K_MODEL) || '').trim() || DEFAULT_MODEL; }
@@ -113,9 +124,20 @@ window.Vision = (function (Core) {
     if (!allowHours) return M + ':' + Core.pad(S);
     return H ? H + ':' + Core.pad(M) + ':' + Core.pad(S) : M + ':' + Core.pad(S);
   }
+  // Chỉ nhận ngày hợp lệ, không ở tương lai và không quá 2 năm trước, để một
+  // lần đọc sai không đẩy buổi chạy về một ngày vô lý.
+  function normDate(v) {
+    var m = String(v == null ? '' : v).match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return '';
+    var d = new Date(+m[1], +m[2] - 1, +m[3]);
+    if (d.getMonth() !== +m[2] - 1) return '';
+    var t0 = Core.today0();
+    if (d > Core.addDays(t0, 1) || d < Core.addDays(t0, -730)) return '';
+    return Core.iso(d);
+  }
   function normalize(o) {
     o = o || {};
-    return { km: normKm(o.km), pace: normClock(o.pace, false), time: normClock(o.time, true) };
+    return { km: normKm(o.km), pace: normClock(o.pace, false), time: normClock(o.time, true), date: normDate(o.date) };
   }
 
   // Bắt đầu đọc NGAY khi có file. Trả về hai promise chạy song song:
@@ -158,9 +180,15 @@ window.Vision = (function (Core) {
       .then(function () { return Date.now() - t0; });
   }
 
+  // Báo cáo văn bản từ số liệu đã tính sẵn (xem REPORT_PROMPT).
+  function report(payload) {
+    return generate([{ text: REPORT_PROMPT + JSON.stringify(payload) }],
+                    { temperature: 0.4, maxOutputTokens: 1200 });
+  }
+
   return {
     DEFAULT_MODEL: DEFAULT_MODEL,
     getKey: getKey, setKey: setKey, getModel: getModel, setModel: setModel, hasKey: hasKey,
-    analyze: analyze, test: test
+    analyze: analyze, test: test, report: report
   };
 })(window.Core);

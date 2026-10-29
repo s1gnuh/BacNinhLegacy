@@ -72,7 +72,17 @@ Những điểm làm nó nhanh:
 - Gửi ngay khi chọn ảnh; trong lúc chờ, ảnh xem trước hiện liền và ô số liệu nhấp nháy.
 - `preconnect` tới Google khi mở trang để bắt tay TLS xong từ trước.
 
+**Nhập hàng loạt**: chọn nhiều ảnh cùng lúc (hoặc kéo thả, dán nhiều ảnh) thì app mở bảng hàng loạt. Mỗi ảnh là một dòng, Gemini đọc song song 3 ảnh một lúc, đọc luôn cả **ngày** nếu ảnh có ghi (không có thì lấy theo thời điểm chụp ảnh). Số nào thiếu thì tự tính từ hai số còn lại. Dòng có vẻ trùng một buổi đã lưu (cùng ngày, cùng km) bị bỏ tick sẵn. Soát lại rồi **Lưu tất cả**; tùy chọn tự đánh dấu buổi tương ứng trong Lịch tập theo ngày.
+
 API key nằm trong `localStorage` của trình duyệt, gửi thẳng cho Google, và **không** có trong file sao lưu. Nên giới hạn key theo tên miền của app trong Google AI Studio.
+
+### Dự đoán thành tích & báo cáo AI (trang Thống kê)
+
+**Dự đoán** (`js/predict.js`, tính tại máy, không cần mạng): từ các buổi chạy có km (từ 2,5 km) và thời gian, ước tính thời gian + pace trung bình cho **5K / 10K / Half / Full** bằng công thức Riegel (`T = t × (D/d)^e`, e = 1,06 / 1,06 / 1,07 / 1,08). Mỗi cự ly lấy nỗ lực cho kết quả tốt nhất trong 120 ngày qua, chỉ nhận buổi dài ít nhất 1/4 cự ly cần dự đoán. Half/Full cộng thêm tối đa 15% nếu buổi chạy dài nhất 60 ngày qua còn ngắn so với cự ly. Mỗi dự đoán có khoảng sai số và độ tin cậy (thấp / vừa / cao) tùy số buổi gần đây và độ dài nguồn.
+
+**Pace gợi ý** suy ra từ dự đoán 10K và 5K: chạy nhẹ/dài, tempo, interval, pace Full. Chúng cập nhật theo mỗi buổi chạy mới và hiện thẳng trong Lịch tập, ngay dưới các buổi chưa chạy ("Pace gợi ý theo kết quả của bạn").
+
+**Báo cáo AI**: nút **Phân tích bằng AI** gửi số liệu (km 8 tuần, 15 buổi gần nhất, PR, dự đoán và pace gợi ý đã tính sẵn, giải sắp tới, giáo án, mục tiêu — không gồm ảnh) cho Gemini, nhận lại báo cáo tiếng Việt 5 mục: tổng quan, điểm mạnh, cần lưu ý, dự đoán & chiến lược, gợi ý tuần tới. AI chỉ diễn giải, các con số dự đoán luôn do app tính nên không bị "bịa". Báo cáo được lưu lại trong trình duyệt, cần bấm "Phân tích lại" khi có dữ liệu mới.
 
 ### Sửa / xóa trong Lịch tập (`plan.html`)
 
@@ -134,7 +144,8 @@ js/
   blocks.js         1 lần áp khuôn vào 1 giải: sinh buổi tập, tick/ghi chú, lịch tuỳ chỉnh
   races.js          CRUD giải đấu, liên kết block
   runlog.js         nhật ký chạy (ảnh không bắt buộc) trong IndexedDB, tính PR và streak
-  vision.js         đọc ảnh Strava bằng Gemini: km, pace, thời gian
+  vision.js         đọc ảnh Strava bằng Gemini (km, pace, thời gian, ngày) và viết báo cáo AI
+  predict.js        dự đoán thời gian 5/10/21/42K và vùng pace từ nhật ký
   log-page.js       trang Nhập nhanh (log.html)
   plan-page.js      trang Lịch tập (plan.html), gồm sửa/xóa buổi
   goals.js          mục tiêu cá nhân + tính tiến độ

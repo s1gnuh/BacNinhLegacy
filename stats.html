@@ -46,6 +46,24 @@
     <div class="pr-grid" id="pr-grid"></div>
   </section>
 
+  <section class="panel" id="pred">
+    <h2>Dự đoán thành tích</h2>
+    <p class="hint" id="pred-note"></p>
+    <div class="pred-grid" id="pred-grid"></div>
+    <h3 class="pred-sub">Pace gợi ý theo kết quả của bạn</h3>
+    <div class="zone-list" id="zone-list"></div>
+    <p class="hint">Ước tính từ buổi chạy tốt nhất bằng công thức Riegel. Buổi chạy nhẹ cho kết quả chậm hơn khả năng thật, nên đây là mức thận trọng. Chạy thử hết sức một lần sẽ cho dự đoán sát hơn.</p>
+  </section>
+
+  <section class="panel" id="ai">
+    <div class="sec-head"><h2>Báo cáo AI</h2><span class="hint" id="ai-when"></span></div>
+    <div class="ai-body" id="ai-body"></div>
+    <div class="panel-actions">
+      <button type="button" class="btn-sm primary" id="ai-run">Phân tích bằng AI</button>
+    </div>
+    <p class="hint" id="ai-status"></p>
+  </section>
+
   <section class="panel" id="analysis">
     <h2>Phân tích xu hướng</h2>
     <div class="chart" id="trend-chart" role="img" aria-label="Biểu đồ km 8 tuần gần nhất"></div>
@@ -89,6 +107,8 @@
 <script src="js/races.js"></script>
 <script src="js/runlog.js"></script>
 <script src="js/goals.js"></script>
+<script src="js/predict.js"></script>
+<script src="js/vision.js"></script>
 <script src="js/migrate.js"></script>
 <script src="js/stats-page.js"></script>
 </body>

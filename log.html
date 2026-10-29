@@ -29,8 +29,8 @@
 
     <label class="drop qe-drop" id="qe-drop" for="qe-file">
       <strong id="qe-drop-t">Chọn ảnh Strava để tự điền</strong>
-      <span id="qe-drop-s">Hoặc kéo thả, hoặc dán ảnh (Ctrl+V). Không bắt buộc.</span>
-      <input class="sr" type="file" id="qe-file" accept="image/*">
+      <span id="qe-drop-s">Chọn nhiều ảnh cùng lúc để nhập hàng loạt. Cũng kéo thả hoặc dán (Ctrl+V) được. Không bắt buộc.</span>
+      <input class="sr" type="file" id="qe-file" accept="image/*" multiple>
     </label>
 
     <div class="qe-key" id="qe-key" hidden>
@@ -73,6 +73,19 @@
     <div class="lg-actions">
       <button type="button" class="btn-sm primary" id="qe-save">Lưu buổi chạy</button>
       <button type="button" class="btn-sm" id="qe-cancel" hidden>Hủy sửa</button>
+    </div>
+  </section>
+
+  <section class="panel qb" id="qb" hidden>
+    <div class="sec-head"><h2>Nhập hàng loạt</h2><span class="hint" id="qb-sum"></span></div>
+    <p class="hint" id="qb-note"></p>
+    <div class="qb-list" id="qb-list"></div>
+    <label class="qe-link"><input type="checkbox" id="qb-link" checked><span>Đánh dấu xong buổi tương ứng trong Lịch tập theo ngày</span></label>
+    <div class="lg-actions">
+      <button type="button" class="btn-sm primary" id="qb-save">Lưu tất cả</button>
+      <label class="btn-sm" for="qb-file">+ Thêm ảnh</label>
+      <input class="sr" type="file" id="qb-file" accept="image/*" multiple>
+      <button type="button" class="btn-sm" id="qb-cancel">Hủy</button>
     </div>
   </section>
 

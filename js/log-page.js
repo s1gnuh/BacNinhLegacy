@@ -15,6 +15,7 @@
   var photo = null;          // { url, blobP, changed, own } — ảnh đang gắn vào form
   var auto = {};             // trường nào đang là số tự tính (không phải người dùng gõ)
   var seq = 0, aiBusy = false, shown = PAGE, armed = '', linkTarget = null;
+  var dateTouched = false;   // đã tự chọn ngày thì AI không đè ngày đọc từ ảnh lên
 
   /* ================= trường nhập ================= */
   function field(f) { return el('qe-' + f); }
@@ -110,6 +111,7 @@
       if (mine !== seq) return;
       var got = NUM.filter(function (f) { return d[f]; }).length;
       fillFromAi(d);
+      if (d.date && !dateTouched && d.date !== val('date')) { setVal('date', d.date); refreshLink(); }
       var s = Math.round((Date.now() - t0) / 100) / 10;
       setAi(got ? 'Đã tự điền trong ' + String(s).replace('.', ',') + ' giây. Kiểm tra lại số liệu trước khi lưu.'
                 : 'Không đọc được số liệu nào trong ảnh. Nhập tay bên dưới.', got ? 'ok' : 'err');
@@ -125,23 +127,23 @@
   }
 
   /* ================= liên kết với buổi trong Lịch tập ================= */
-  function refreshLink() {
-    var box = el('qe-link');
-    linkTarget = null;
-    var date = val('date');
-    if (!editing && date && el('qe-kind').value === 'run') {
-      var blocks = B.list().sort(function (a, b) { return (B.isActive(b) ? 1 : 0) - (B.isActive(a) ? 1 : 0); });
-      for (var i = 0; i < blocks.length && !linkTarget; i++) {
-        var list = B.sessionsOf(blocks[i]).list;
-        for (var j = 0; j < list.length; j++) {
-          var x = list[j];
-          if (x.s.type !== 'rest' && C.iso(x.date) === date && !blocks[i].done[x.id]) {
-            linkTarget = { b: blocks[i], x: x };
-            break;
-          }
-        }
+  // Buổi chưa đánh dấu của ngày `date`, ưu tiên giáo án đang chạy.
+  function candidateFor(date) {
+    var blocks = B.list().sort(function (a, b) { return (B.isActive(b) ? 1 : 0) - (B.isActive(a) ? 1 : 0); });
+    for (var i = 0; i < blocks.length; i++) {
+      var list = B.sessionsOf(blocks[i]).list;
+      for (var j = 0; j < list.length; j++) {
+        var x = list[j];
+        if (x.s.type !== 'rest' && C.iso(x.date) === date && !blocks[i].done[x.id]) return { b: blocks[i], x: x };
       }
     }
+    return null;
+  }
+
+  function refreshLink() {
+    var box = el('qe-link');
+    var date = val('date');
+    linkTarget = !editing && date && el('qe-kind').value === 'run' ? candidateFor(date) : null;
     box.hidden = !linkTarget;
     if (linkTarget) el('qe-link-t').textContent = 'Đánh dấu xong buổi "' + linkTarget.x.s.title + '" trong Lịch tập';
   }
@@ -157,6 +159,7 @@
     var d = keepDate ? val('date') : '';
     editing = null;
     auto = {};
+    dateTouched = false;
     ['km', 'pace', 'time', 'note'].forEach(function (f) { setVal(f, ''); });
     el('qe-kind').value = 'run';
     setVal('date', d || C.iso(C.today0()));
@@ -172,6 +175,7 @@
   function startEdit(r) {
     resetForm(false);
     editing = r;
+    dateTouched = true;
     setVal('date', r.date);
     el('qe-kind').value = r.kind || 'run';
     setVal('km', r.km); setVal('pace', r.pace); setVal('time', r.time); setVal('note', r.note);
@@ -187,11 +191,11 @@
   }
 
   /* ================= lưu ================= */
-  function validate(km, pace, time) {
+  function validate(km, pace, time, hasPhoto) {
     if (km && !(Number(km) > 0)) return 'Khoảng cách phải là số, ví dụ 5,2';
     if (pace && !/^\d{1,2}:\d{2}$/.test(pace)) return 'Pace nhập dạng phút:giây, ví dụ 6:30';
     if (time && !/^\d{1,2}:\d{2}(:\d{2})?$/.test(time)) return 'Thời gian nhập dạng 32:30 hoặc 1:05:30';
-    if (!km && !time && !photo) return 'Nhập khoảng cách hoặc thời gian, hoặc chọn một ảnh';
+    if (!km && !time && !photo && !hasPhoto) return 'Nhập khoảng cách hoặc thời gian, hoặc chọn một ảnh';
     return '';
   }
 
@@ -327,9 +331,217 @@
     } catch (e) { node.textContent = ''; }
   }
 
+  /* ================= nhập hàng loạt ================= */
+  // Mỗi ảnh là một dòng với số liệu Gemini đọc được; người dùng soát lại rồi
+  // lưu tất cả một lần. Chỉ đọc song song vài ảnh một lúc để khỏi dính giới
+  // hạn tốc độ của Gemini và khỏi giải mã hàng chục ảnh lớn cùng lúc.
+  var BULK_PAR = 3;
+  var rows = [], queue = [], active = 0;
+
+  function rowEl(id) { return el('qb-list').querySelector('[data-row="' + id + '"]'); }
+  function rowIn(id, f) { var r = rowEl(id); return r ? r.querySelector('[data-f="' + f + '"]') : null; }
+  function rowVal(id, f) { var n = rowIn(id, f); return n ? n.value.trim() : ''; }
+  function rowSet(id, f, v) { var n = rowIn(id, f); if (n) n.value = v == null ? '' : v; }
+  function rowStatus(row, text, cls) {
+    var n = rowEl(row.id) && rowEl(row.id).querySelector('[data-st]');
+    if (!n) return;
+    n.textContent = text;
+    n.className = 'qb-st' + (cls ? ' ' + cls : '');
+  }
+  function findRow(id) { for (var i = 0; i < rows.length; i++) if (rows[i].id === id) return rows[i]; return null; }
+  function bulkOn() { return !el('qb').hidden; }
+
+  function isoOf(ms) {
+    var d = ms ? new Date(ms) : new Date();
+    return isNaN(d) ? C.iso(C.today0()) : C.iso(d);
+  }
+
+  // Có đúng hai trong ba số thì tính số còn lại (cùng công thức như form đơn).
+  function deriveRow(id) {
+    var km = rowVal(id, 'km').replace(',', '.'), pace = rowVal(id, 'pace'), time = rowVal(id, 'time');
+    var have = (km ? 1 : 0) + (pace ? 1 : 0) + (time ? 1 : 0);
+    if (have !== 2) return;
+    var k = Number(km), p = RL.parseTime(pace), t = RL.parseTime(time);
+    if (!km) { if (t > 0 && p > 0) rowSet(id, 'km', String(Math.round(t / p * 100) / 100)); }
+    else if (!pace) { if (k > 0 && t > 0) rowSet(id, 'pace', RL.formatTime(t / k)); }
+    else if (k > 0 && p > 0) rowSet(id, 'time', RL.formatTime(k * p));
+  }
+
+  function dupOf(id) {
+    var date = rowVal(id, 'date'), km = Number(rowVal(id, 'km').replace(',', '.'));
+    if (!date || !(km > 0)) return false;
+    return runs.some(function (r) { return r.date === date && Math.abs((Number(r.km) || 0) - km) <= 0.05; });
+  }
+
+  function rowHtml(row) {
+    return '<article class="qb-row" data-row="' + row.id + '">'
+      + '<div class="qb-thumb"><img src="' + row.url + '" alt=""></div>'
+      + '<div class="qb-main">'
+      + '<div class="qb-st busy" data-st>Chờ đọc...</div>'
+      + '<div class="qb-fields">'
+      + '<label class="fld"><span>Ngày</span><input type="date" data-f="date" value="' + row.date + '"></label>'
+      + '<label class="fld"><span>Km</span><input type="text" inputmode="decimal" data-f="km" autocomplete="off"></label>'
+      + '<label class="fld"><span>Pace</span><input type="text" inputmode="numeric" data-f="pace" autocomplete="off"></label>'
+      + '<label class="fld"><span>Thời gian</span><input type="text" inputmode="numeric" data-f="time" autocomplete="off"></label>'
+      + '</div></div>'
+      + '<div class="qb-side">'
+      + '<label class="qb-use"><input type="checkbox" data-f="use" checked> Lưu</label>'
+      + '<button type="button" class="btn-sm" data-act="rm">Bỏ</button>'
+      + '</div></article>';
+  }
+
+  function bulkRefresh() {
+    var pending = rows.filter(function (r) { return r.state === 'wait' || r.state === 'read'; }).length;
+    var use = rows.filter(function (r) { return rowIn(r.id, 'use') && rowIn(r.id, 'use').checked; }).length;
+    el('qb-sum').textContent = rows.length + ' ảnh' + (pending ? ' · đang đọc ' + pending : '') + ' · sẽ lưu ' + use;
+    var b = el('qb-save');
+    b.disabled = pending > 0 || !use;
+    b.textContent = pending ? 'Đang đọc ảnh...' : 'Lưu ' + use + ' buổi';
+  }
+
+  function pump() {
+    while (active < BULK_PAR && queue.length) {
+      var row = queue.shift();
+      if (!findRow(row.id)) continue;          // đã bị bỏ khi còn chờ
+      active++;
+      readRow(row).then(function () { active--; pump(); bulkRefresh(); });
+    }
+  }
+
+  function readRow(row) {
+    var read = V.hasKey();
+    row.state = 'read';
+    rowStatus(row, read ? 'Đang đọc ảnh...' : 'Chưa có API key, nhập tay', 'busy');
+    var a = V.analyze(row.file, read);
+    row.blobP = a.blob;
+    if (!read) { row.state = 'ok'; rowStatus(row, 'Nhập tay số liệu', ''); return Promise.resolve(); }
+    return a.data.then(function (d) {
+      if (!findRow(row.id)) return;
+      var got = NUM.filter(function (f) { return d[f]; }).length;
+      NUM.forEach(function (f) { if (d[f]) rowSet(row.id, f, d[f]); });
+      if (d.date) rowSet(row.id, 'date', d.date);
+      deriveRow(row.id);
+      row.state = 'ok';
+      var dup = dupOf(row.id);
+      if (dup && rowIn(row.id, 'use')) rowIn(row.id, 'use').checked = false;
+      rowStatus(row, dup ? 'Có vẻ trùng với buổi đã lưu (cùng ngày, cùng km), đã bỏ tick'
+                   : got ? (d.date ? 'Đã đọc xong' : 'Đã đọc, ngày lấy theo thời điểm chụp ảnh') : 'Không đọc được số liệu, nhập tay',
+                got ? (dup ? 'err' : 'ok') : 'err');
+    }).catch(function (e) {
+      if (!findRow(row.id)) return;
+      row.state = 'ok';
+      rowStatus(row, e.message || 'Không đọc được ảnh', 'err');
+    });
+  }
+
+  function addBulk(files) {
+    if (!files.length) return;
+    if (!bulkOn()) {
+      if (photo || val('km') || val('time') || val('pace')) {
+        // đang dở một form đơn: giữ nguyên, người dùng tự lưu hoặc hủy trước
+        C.toast('Đang nhập dở một buổi', 'Lưu hoặc hủy buổi đó trước khi nhập hàng loạt');
+        return;
+      }
+      el('qe').hidden = true;
+      el('qb').hidden = false;
+      el('qb-note').textContent = V.hasKey() ? 'Gemini đọc từng ảnh. Soát lại số liệu rồi bấm lưu.'
+        : 'Chưa có API key Gemini nên không tự đọc được. Thêm ở Cài đặt, hoặc nhập tay từng dòng.';
+    }
+    files.forEach(function (f) {
+      var row = { id: C.uid('b'), file: f, url: URL.createObjectURL(f), date: isoOf(f.lastModified),
+                  state: 'wait', blobP: null };
+      rows.push(row);
+      el('qb-list').insertAdjacentHTML('beforeend', rowHtml(row));
+      queue.push(row);
+    });
+    bulkRefresh();
+    pump();
+  }
+
+  function closeBulk() {
+    rows.forEach(function (r) { try { URL.revokeObjectURL(r.url); } catch (e) {} });
+    rows = []; queue = [];
+    el('qb-list').innerHTML = '';
+    el('qb').hidden = true;
+    el('qe').hidden = false;
+    el('qe-file').value = ''; el('qb-file').value = '';
+  }
+
+  function removeRow(id) {
+    var row = findRow(id);
+    if (!row) return;
+    try { URL.revokeObjectURL(row.url); } catch (e) {}
+    rows = rows.filter(function (r) { return r.id !== id; });
+    var n = rowEl(id); if (n && n.parentNode) n.parentNode.removeChild(n);
+    if (!rows.length) closeBulk(); else bulkRefresh();
+  }
+
+  function saveBulk() {
+    var btn = el('qb-save');
+    var link = el('qb-link').checked;
+    var todo = rows.filter(function (r) { return rowIn(r.id, 'use') && rowIn(r.id, 'use').checked; });
+    var saved = 0, linked = 0, failed = 0;
+    btn.disabled = true;
+    todo.reduce(function (p, row) {
+      return p.then(function () {
+        var date = rowVal(row.id, 'date'), km = rowVal(row.id, 'km').replace(',', '.');
+        var pace = rowVal(row.id, 'pace'), time = rowVal(row.id, 'time');
+        var err = !date ? 'Thiếu ngày' : validate(km, pace, time, true);
+        if (err) { failed++; rowStatus(row, err, 'err'); return null; }
+        return row.blobP.then(function (blob) {
+          var r = RL.newRun({ blob: blob });
+          r.date = date; r.kind = 'run'; r.km = km; r.pace = pace; r.time = time;
+          r.cat = (km || pace || time) ? 'strava' : 'photo';
+          var t = link && r.cat === 'strava' ? candidateFor(date) : null;
+          if (t) { r.sessionId = t.x.id; r.blockId = t.b.id; }
+          return RL.saveRun(r).then(function (ok) {
+            if (ok === null) { failed++; rowStatus(row, 'Không lưu được', 'err'); return; }
+            runs.unshift(r); saved++;
+            if (t) { B.setDone(t.b, t.x.id, true); linked++; }
+            removeRowSilently(row.id);
+          });
+        });
+      });
+    }, Promise.resolve()).then(function () {
+      if (saved) {
+        C.toast('Đã lưu ' + saved + ' buổi chạy', (linked ? linked + ' buổi được đánh dấu trong Lịch tập' : '') + (failed ? (linked ? ' · ' : '') + failed + ' dòng lỗi' : ''));
+        if (linked) C.FX.party(linked > 1 ? 'week' : 'easy', btn);
+      }
+      renderRecent(); showStorage();
+      if (!rows.length) closeBulk(); else bulkRefresh();
+    });
+  }
+  function removeRowSilently(id) {
+    var row = findRow(id);
+    if (row) { try { URL.revokeObjectURL(row.url); } catch (e) {} }
+    rows = rows.filter(function (r) { return r.id !== id; });
+    var n = rowEl(id); if (n && n.parentNode) n.parentNode.removeChild(n);
+  }
+
+  function pickFiles(list) {
+    var arr = Array.prototype.slice.call(list || []).filter(function (f) { return /^image\//.test(f.type); });
+    if (!arr.length) return;
+    if (arr.length > 1 || bulkOn()) addBulk(arr); else pickFile(arr[0]);
+  }
+
   /* ================= boot ================= */
   function bind() {
-    on('qe-file', 'change', function (e) { pickFile(e.target.files && e.target.files[0]); });
+    on('qe-file', 'change', function (e) { pickFiles(e.target.files); e.target.value = ''; });
+    on('qb-file', 'change', function (e) { pickFiles(e.target.files); e.target.value = ''; });
+    on('qb-save', 'click', saveBulk);
+    on('qb-cancel', 'click', closeBulk);
+    on('qb-list', 'click', function (e) {
+      var b = e.target.closest ? e.target.closest('[data-act="rm"]') : null;
+      var art = b && b.closest('[data-row]');
+      if (art) removeRow(art.getAttribute('data-row'));
+    });
+    on('qb-list', 'change', function (e) {
+      var art = e.target.closest ? e.target.closest('[data-row]') : null;
+      if (!art) return;
+      var f = e.target.getAttribute('data-f');
+      if (f === 'km' || f === 'pace' || f === 'time') deriveRow(art.getAttribute('data-row'));
+      bulkRefresh();
+    });
     on('qe-key-save', 'click', saveKey);
     on('qe-key-in', 'keydown', function (e) { if (e.key === 'Enter') { e.stopPropagation(); e.preventDefault(); saveKey(); } });
     on('qe-clear', 'click', function () { el('qe-file').value = ''; dropPhoto(); });
@@ -338,17 +550,17 @@
     drop.addEventListener('dragleave', function () { drop.classList.remove('over'); });
     drop.addEventListener('drop', function (e) {
       e.preventDefault(); drop.classList.remove('over');
-      pickFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
+      pickFiles(e.dataTransfer && e.dataTransfer.files);
     });
     document.addEventListener('paste', function (e) {
-      var f = e.clipboardData && e.clipboardData.files && e.clipboardData.files[0];
-      if (f && /^image\//.test(f.type)) { e.preventDefault(); pickFile(f); }
+      var fs = e.clipboardData && e.clipboardData.files;
+      if (fs && fs.length && /^image\//.test(fs[0].type)) { e.preventDefault(); pickFiles(fs); }
     });
 
     NUM.forEach(function (f) {
       field(f).addEventListener('input', function () { delete auto[f]; recalc(); });
     });
-    on('qe-date', 'change', refreshLink);
+    on('qe-date', 'change', function () { dateTouched = true; refreshLink(); });
     on('qe-kind', 'change', refreshLink);
     on('qe-save', 'click', save);
     on('qe-cancel', 'click', function () { resetForm(true); });
@@ -370,7 +582,7 @@
     renderKey();
     var want = C.qs('date');
     resetForm(false);
-    if (want && /^\d{4}-\d{2}-\d{2}$/.test(want)) { setVal('date', want); refreshLink(); }
+    if (want && /^\d{4}-\d{2}-\d{2}$/.test(want)) { setVal('date', want); dateTouched = true; refreshLink(); }
 
     RL.openDB().then(function () { return RL.loadRuns(); }).then(function (all) {
       runs = all;

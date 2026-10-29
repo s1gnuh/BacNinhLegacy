@@ -13,6 +13,7 @@
   var blocks = [], runs = [], sel = 'all', calMonth = null, calSel = '';
   // buổi đang sửa / đang chờ xác nhận xóa: "blockId::sessionId", hoặc "run:<id>" cho nhật ký
   var editKey = '', armedKey = '';
+  var zones = null;   // vùng pace gợi ý từ kết quả thực tế (Predict), null khi chưa đủ dữ liệu
 
   /* ================= truy vấn ================= */
   function raceName(b) {
@@ -254,7 +255,9 @@
           + '<span class="kmv num">' + C.fmtKm(e.x.s.km) + ' km</span>'
           + '</div>'
           + (editKey === key ? editorHtml(key, e.x)
-              : (e.x.s.d ? '<p class="cdn">' + C.esc(e.x.s.d) + '</p>' : ''));
+              : (e.x.s.d ? '<p class="cdn">' + C.esc(e.x.s.d) + '</p>' : '')
+                + (dn || !window.Predict.hintFor(e.x.s.type, zones) ? ''
+                    : '<p class="cdn pace-hint">' + C.esc(window.Predict.hintFor(e.x.s.type, zones)) + '</p>'));
       }).join('');
     }
 
@@ -420,7 +423,11 @@
     calSel = C.iso(C.today0());
     bind();
     renderAll();
-    RL.loadRuns().then(function (all) { runs = all; renderCal(); renderDay(); });
+    RL.loadRuns().then(function (all) {
+      runs = all;
+      zones = window.Predict.compute(all).zones;
+      renderCal(); renderDay();
+    });
     C.registerSW();
   }
 
