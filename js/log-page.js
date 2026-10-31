@@ -622,6 +622,7 @@
 
   function boot() {
     C.registerSW();
+    C.lockOrientation();
     var now = new Date();
     el('log-eyebrow').textContent = C.WD[(now.getDay() + 6) % 7] + ', ' + C.fmt(now) + '/' + now.getFullYear();
     askPersist();

@@ -281,6 +281,7 @@
       window.Notify.init();
     });
     C.registerSW();
+    C.lockOrientation();
   }
 
   boot();

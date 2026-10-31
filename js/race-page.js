@@ -237,6 +237,7 @@
     renderAll();
     renderReference();
     C.registerSW();
+    C.lockOrientation();
   }
 
   boot();

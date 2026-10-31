@@ -279,6 +279,32 @@ ul.rules { margin: 0; padding-left: 18px; display: flex; flex-direction: column;
   .splash-bar i { animation: none; width: 100%; }
 }
 
+/* khoá chiều dọc — app chỉ thiết kế cho portrait; API screen.orientation.lock
+   chỉ có tác dụng khi chạy như PWA đã cài (xem "orientation" trong manifest),
+   nên luôn cần lớp phủ CSS này làm lưới chắn cuối cho mọi trình duyệt/di động.
+   Chỉ chặn màn hình cảm ứng (pointer: coarse) — laptop/desktop xoay ngang là bình thường. */
+.orient-lock { display: none; }
+@media (orientation: landscape) and (pointer: coarse) {
+  .orient-lock {
+    display: flex; position: fixed; inset: 0; z-index: 500;
+    flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    padding: 32px; text-align: center; background: #0E2551;
+    background-image: radial-gradient(118% 78% at 50% 16%, #1D4282 0%, #0E2551 56%, #081732 100%);
+  }
+  .orient-lock-icon { font-size: 42px; animation: ol-spin 1.6s ease-in-out infinite; }
+  .orient-lock p {
+    margin: 0; max-width: 280px; color: #E9EEFA;
+    font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  }
+}
+@keyframes ol-spin {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-90deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orient-lock-icon { animation: none; }
+}
+
 /* vòng tiến độ tuần này */
 .ring-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .ring-box { position: relative; width: 128px; height: 128px; flex: 0 0 auto; }

@@ -484,6 +484,7 @@
       renderAll();
     });
     C.registerSW();
+    C.lockOrientation();
   }
 
   boot();

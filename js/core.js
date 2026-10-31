@@ -201,6 +201,20 @@ window.Core = (function () {
 
   var LABEL = { easy: 'Nhẹ', quality: 'Chất lượng', long: 'Dài', race: 'Thi đấu', rest: 'Nghỉ' };
 
+  /* ================= khoá hướng màn hình ================= */
+  // App chỉ thiết kế cho chiều dọc (xem "orientation" trong manifest.json).
+  // screen.orientation.lock chỉ được hầu hết trình duyệt cho phép khi app chạy
+  // như PWA đã cài (display-mode: standalone/fullscreen) — mở trong tab thường
+  // hay trên iOS thì luôn bị từ chối, nên thất bại là bình thường, bỏ qua lặng lẽ.
+  // Lớp phủ CSS .orient-lock (style.css) là lưới chắn cho mọi trường hợp còn lại.
+  function lockOrientation() {
+    try {
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('portrait').catch(function () {});
+      }
+    } catch (e) {}
+  }
+
   /* ================= service worker ================= */
   function registerSW() {
     if (!('serviceWorker' in navigator)) return;
@@ -225,6 +239,6 @@ window.Core = (function () {
     WD: WD, LABEL: LABEL, TRAINING_RULES: TRAINING_RULES,
     pad: pad, iso: iso, fromIso: fromIso, fmt: fmt, today0: today0, addDays: addDays,
     fmtKm: fmtKm, fmtNum: fmtNum, fmtDuration: fmtDuration, esc: esc, uid: uid, qs: qs,
-    store: store, toast: toast, FX: FX, registerSW: registerSW
+    store: store, toast: toast, FX: FX, registerSW: registerSW, lockOrientation: lockOrientation
   };
 })();
